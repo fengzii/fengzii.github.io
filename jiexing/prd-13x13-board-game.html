@@ -1,0 +1,2581 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>界行 · 13×13 挡板对战棋 — 产品需求文档</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%23a8412a'/%3E%3Ctext x='32' y='45' font-size='36' text-anchor='middle' fill='%23f9eadf' font-family='serif'%3E%E7%95%8C%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  --paper:#efe9de;
+  --paper-2:#faf6ee;
+  --ink:#1d1a16;
+  --ink-2:#4c463c;
+  --muted:#8a8071;
+  --line:#d8cdbb;
+  --accent:#a8412a;
+  --accent-2:#c86a4b;
+  --gold:#b58a3c;
+  --ai:#3f6270;
+  --wood:#d9c19a;
+  --serif:"Songti SC","STSong","Noto Serif CJK SC","Source Han Serif SC",Georgia,serif;
+  --sans:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+  --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  background:
+    radial-gradient(900px 500px at 18% 0%, rgba(255,255,255,.58), transparent 62%),
+    radial-gradient(800px 600px at 90% 88%, rgba(176,150,108,.16), transparent 62%),
+    var(--paper);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:15px;
+  line-height:1.75;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+::selection{background:rgba(168,65,42,.18)}
+.page{
+  max-width:1280px;
+  margin:0 auto;
+  padding:0 40px;
+  display:grid;
+  grid-template-columns:224px minmax(0,1fr);
+  gap:52px;
+}
+.toc{
+  position:sticky;
+  top:0;
+  align-self:start;
+  height:100vh;
+  padding:44px 28px 44px 0;
+  border-right:1px solid var(--line);
+  display:flex;
+  flex-direction:column;
+}
+.toc-brand{
+  font-family:var(--serif);
+  font-size:20px;
+  letter-spacing:.08em;
+  margin:0 0 4px;
+}
+.toc-brand span{color:var(--accent)}
+.toc-sub{
+  font-family:var(--mono);
+  font-size:9px;
+  letter-spacing:.18em;
+  color:var(--muted);
+  text-transform:uppercase;
+  margin:0 0 30px;
+}
+.toc nav{display:flex;flex-direction:column;gap:2px}
+.toc a{
+  display:flex;
+  gap:10px;
+  align-items:baseline;
+  text-decoration:none;
+  color:var(--ink-2);
+  font-size:12.5px;
+  padding:6px 8px 6px 0;
+  border-left:2px solid transparent;
+  padding-left:10px;
+  transition:color .15s ease,border-color .15s ease;
+}
+.toc a span{
+  font-family:var(--mono);
+  font-size:9.5px;
+  color:var(--muted);
+  letter-spacing:.05em;
+}
+.toc a:hover{color:var(--accent)}
+.toc a.active{color:var(--ink);border-left-color:var(--accent);font-weight:600}
+.toc a.active span{color:var(--accent)}
+.toc-foot{
+  margin-top:auto;
+  font-size:10px;
+  line-height:1.6;
+  color:var(--muted);
+  border-top:1px solid var(--line);
+  padding-top:14px;
+}
+.doc{padding:52px 0 120px;min-width:0;max-width:936px}
+.hero{
+  padding-bottom:38px;
+  border-bottom:1px solid var(--ink);
+}
+.hero-grid{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 214px;
+  gap:36px;
+  align-items:end;
+}
+.kicker{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  font-family:var(--mono);
+  font-size:10px;
+  letter-spacing:.2em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.kicker::before{content:"";width:26px;height:1px;background:var(--accent)}
+h1{
+  font-family:var(--serif);
+  font-size:clamp(52px,7vw,86px);
+  line-height:1;
+  font-weight:600;
+  letter-spacing:-.02em;
+  margin:20px 0 12px;
+}
+h1 .title-dot{color:var(--accent)}
+.hero-sub{
+  font-family:var(--serif);
+  font-size:21px;
+  letter-spacing:.02em;
+  color:var(--ink);
+  margin:0 0 12px;
+}
+.hero-lede{
+  max-width:570px;
+  font-size:14px;
+  line-height:1.8;
+  color:var(--ink-2);
+  margin:0;
+}
+.hero-art{position:relative;padding-bottom:6px}
+.hero-art svg{width:100%;display:block;filter:drop-shadow(0 20px 26px rgba(58,43,25,.24))}
+.seal{
+  position:absolute;
+  right:-4px;
+  bottom:18px;
+  width:52px;
+  height:52px;
+  display:grid;
+  place-items:center;
+  background:var(--accent);
+  color:#f9eadf;
+  font-family:var(--serif);
+  font-size:27px;
+  border-radius:3px;
+  transform:rotate(-3deg);
+  box-shadow:0 10px 18px rgba(120,45,28,.32);
+}
+.meta{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  margin-top:34px;
+  border-top:1px solid var(--line);
+}
+.meta div{padding:12px 16px 0 0;border-right:1px solid var(--line)}
+.meta div:last-child{border-right:0}
+.meta dt{
+  font-family:var(--mono);
+  font-size:9px;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.meta dd{margin:3px 0 0;font-size:12.5px;font-weight:600;letter-spacing:.01em}
+.section{padding:54px 0;border-bottom:1px solid var(--line);scroll-margin-top:20px}
+.section-head{display:flex;align-items:baseline;gap:14px;margin-bottom:26px;flex-wrap:wrap}
+.section-num{
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.1em;
+  color:var(--accent);
+  padding-top:2px;
+}
+h2{
+  font-family:var(--serif);
+  font-size:33px;
+  line-height:1.25;
+  font-weight:600;
+  letter-spacing:-.01em;
+  margin:0;
+}
+.section-sub{
+  margin-left:auto;
+  font-family:var(--mono);
+  font-size:9px;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+h3{
+  font-family:var(--serif);
+  font-size:20px;
+  font-weight:600;
+  letter-spacing:0;
+  margin:30px 0 10px;
+}
+h4{
+  font-family:var(--sans);
+  font-size:13px;
+  font-weight:600;
+  margin:20px 0 6px;
+}
+p{margin:0 0 13px}
+.lede{font-size:15.5px;color:var(--ink-2);line-height:1.85}
+.muted{color:var(--muted)}
+.small{font-size:12px;line-height:1.7}
+.list{margin:0 0 14px;padding-left:20px}
+.list li{margin-bottom:7px;color:var(--ink-2)}
+.list li::marker{color:var(--accent)}
+.table{width:100%;border-collapse:collapse;font-size:13px;line-height:1.6;margin:14px 0 10px}
+.table th{
+  text-align:left;
+  font-family:var(--mono);
+  font-size:9px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--muted);
+  font-weight:600;
+  padding:8px 12px;
+  border-bottom:1px solid var(--ink);
+  vertical-align:bottom;
+}
+.table td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--ink-2)}
+.table tr:last-child td{border-bottom:0}
+.table td strong{color:var(--ink);font-weight:600}
+.table .nowrap{white-space:nowrap}
+.callout{
+  border-left:2px solid var(--accent);
+  background:rgba(168,65,42,.05);
+  padding:13px 17px;
+  margin:18px 0;
+  font-size:13px;
+  line-height:1.75;
+  color:var(--ink-2);
+}
+.callout strong{color:var(--ink)}
+.callout.ink{border-left-color:var(--ai);background:rgba(63,98,112,.055)}
+.flow{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:7px;
+  margin:16px 0 6px;
+}
+.flow-step{
+  border:1px solid var(--line);
+  background:var(--paper-2);
+  padding:7px 11px;
+  border-radius:4px;
+  font-size:11.5px;
+  color:var(--ink-2);
+  white-space:nowrap;
+}
+.flow-step.accent{border-color:rgba(168,65,42,.35);background:rgba(168,65,42,.06);color:var(--accent)}
+.flow-arrow{color:var(--muted);font-size:11px;font-family:var(--mono)}
+.board-figure{margin:20px 0 8px;padding:18px;background:var(--paper-2);border:1px solid var(--line);border-radius:6px}
+.board-figure svg{display:block;width:100%;max-width:330px;margin:0 auto}
+.join-figure{margin:18px 0 8px;padding:16px;background:var(--paper-2);border:1px solid var(--line);border-radius:6px}
+.join-figure svg{display:block;width:100%;max-width:560px;margin:0 auto}
+.join-label{font-family:var(--sans);font-size:11.5px;font-weight:600;text-anchor:middle}
+.join-label.ok{fill:#3f6270}
+.join-label.no{fill:#a8412a}
+figcaption{font-size:11px;line-height:1.65;color:var(--muted);margin-top:12px;text-align:center}
+.status-table td:first-child{white-space:nowrap}
+.req{
+  display:grid;
+  grid-template-columns:104px minmax(0,1fr);
+  gap:24px;
+  padding:26px 0 20px;
+  border-top:1px solid var(--line);
+}
+.req:first-of-type{border-top:1px solid var(--ink)}
+.req-id{
+  font-family:var(--mono);
+  font-size:10.5px;
+  letter-spacing:.08em;
+  color:var(--accent);
+  padding-top:5px;
+}
+.req-id span{display:block;font-family:var(--sans);font-size:9.5px;color:var(--muted);letter-spacing:.04em;margin-top:4px}
+.req h3{margin:0 0 4px;font-size:22px}
+.req-purpose{font-size:12.5px;color:var(--muted);margin:0 0 14px}
+.req-grid{display:grid;grid-template-columns:74px minmax(0,1fr);gap:7px 16px;font-size:13px;line-height:1.75}
+.req-grid dt{
+  font-family:var(--mono);
+  font-size:9px;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--muted);
+  padding-top:4px;
+}
+.req-grid dd{margin:0;color:var(--ink-2)}
+.req-grid dd strong{color:var(--ink);font-weight:600}
+.req-ref{
+  display:inline-block;
+  font-family:var(--mono);
+  font-size:9.5px;
+  letter-spacing:.04em;
+  color:var(--ai);
+  border:1px solid rgba(63,98,112,.28);
+  border-radius:3px;
+  padding:0 5px;
+  line-height:1.6;
+  white-space:nowrap;
+}
+.rule{padding:20px 0 6px;border-top:1px solid var(--line)}
+.rule:first-of-type{border-top:1px solid var(--ink)}
+.rule-head{display:flex;align-items:baseline;gap:12px;margin-bottom:8px}
+.rule-code{
+  font-family:var(--mono);
+  font-size:10px;
+  letter-spacing:.05em;
+  background:var(--ink);
+  color:var(--paper-2);
+  border-radius:3px;
+  padding:2px 7px;
+  white-space:nowrap;
+}
+.rule-head h3{margin:0;font-size:19px}
+.rule p{font-size:13.5px;color:var(--ink-2);margin-bottom:8px}
+.rule .table{margin-top:8px}
+.plain-list{margin:0;padding-left:18px;font-size:13px;line-height:1.75;color:var(--ink-2)}
+.plain-list li{margin-bottom:5px}
+.ui-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:16px 0 8px}
+.ui-card{border:1px solid var(--line);background:var(--paper-2);border-radius:6px;padding:15px 16px}
+.ui-card h4{margin:0 0 5px;font-size:12.5px;letter-spacing:.02em}
+.ui-card p{margin:0;font-size:11.5px;line-height:1.7;color:var(--muted)}
+.ui-card strong{color:var(--ink-2)}
+.open-table td:first-child{font-weight:600;color:var(--ink)}
+.doc-foot{padding-top:34px;font-size:10.5px;color:var(--muted);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.doc-foot span{font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;font-size:9px}
+
+/* ---------- Prototype ---------- */
+.proto{
+  margin:18px 0 10px;
+  padding:18px;
+  border-radius:20px;
+  background:
+    radial-gradient(130% 150% at 18% 0%, #352b1e 0%, #241e16 55%, #191510 100%);
+  box-shadow:
+    0 34px 60px -32px rgba(35,25,15,.65),
+    inset 0 0 0 1px rgba(255,255,255,.045);
+}
+.proto-grid{
+  display:grid;
+  grid-template-columns:minmax(0,1.38fr) minmax(226px,.82fr);
+  gap:20px;
+  align-items:stretch;
+}
+.board-holder{
+  position:relative;
+  aspect-ratio:1/1;
+  min-width:0;
+  border-radius:10px;
+  overflow:hidden;
+  background:#2a2218;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.05);
+}
+#boardSvg{display:block;width:100%;height:100%;touch-action:none;user-select:none}
+.proto-side{
+  color:#efe5d3;
+  display:flex;
+  flex-direction:column;
+  gap:13px;
+  padding:4px 4px 2px;
+  min-width:0;
+}
+.side-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.side-eyebrow{
+  font-family:var(--mono);
+  font-size:9px;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  color:#a8987e;
+}
+.diff-badge{
+  font-size:10.5px;
+  padding:2px 9px;
+  border:1px solid rgba(216,178,99,.36);
+  color:#e0bb74;
+  border-radius:999px;
+  white-space:nowrap;
+}
+.turn-block{
+  display:flex;
+  gap:11px;
+  align-items:flex-start;
+  padding:12px 14px;
+  background:rgba(255,255,255,.045);
+  border:1px solid rgba(255,255,255,.07);
+  border-radius:8px;
+}
+.turn-dot{
+  flex:0 0 auto;
+  width:8px;
+  height:8px;
+  margin-top:7px;
+  border-radius:50%;
+  background:#d8a13c;
+  box-shadow:0 0 0 4px rgba(216,161,60,.13);
+}
+.turn-dot.ai{background:#7fa3b5;box-shadow:0 0 0 4px rgba(127,163,181,.13);animation:pulse 1.2s ease-in-out infinite}
+.turn-dot.over{background:#8d7f6c;box-shadow:none}
+#turnLabel{font-size:14.5px;font-weight:600;letter-spacing:.02em;margin:0}
+#turnSub{font-size:10.5px;line-height:1.5;color:#a99a83;margin:2px 0 0}
+.stock-block{display:flex;flex-direction:column;gap:8px;padding:2px 0}
+.stock-row{display:flex;align-items:center;gap:8px}
+.stock-side{display:flex;align-items:center;gap:5px;font-size:10.5px;color:#c6b69d;width:58px;flex:0 0 auto}
+.mini-pawn{width:8px;height:8px;border-radius:50%;background:#d8a13c;display:inline-block}
+.mini-pawn.ai{background:#7fa3b5;border-radius:2px}
+.pips{display:flex;gap:3px;flex:0 0 auto}
+.pips i{width:8px;height:11px;border-radius:2px;background:#d8a13c;display:block}
+.pips i.used{background:rgba(255,255,255,.12)}
+.pips.ai i{background:#7fa3b5}
+.pips.ai i.used{background:rgba(255,255,255,.12)}
+.stock-num{font-family:var(--mono);font-size:10.5px;color:#e6d7bf;margin-left:auto}
+.side-label{
+  font-family:var(--mono);
+  font-size:9px;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:#8f816c;
+  margin:0 0 6px;
+}
+.mode-tabs{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:4px;
+  padding:4px;
+  background:rgba(0,0,0,.22);
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:8px;
+}
+.mode-tabs button{
+  appearance:none;
+  border:0;
+  background:transparent;
+  color:#c8b89f;
+  font-size:11px;
+  font-family:var(--sans);
+  padding:6px 3px;
+  border-radius:5px;
+  cursor:pointer;
+  transition:background .14s ease,color .14s ease;
+}
+.mode-tabs button:hover:not(:disabled){color:#efd9b0}
+.mode-tabs button.active{background:#d8a13c;color:#241b0b;font-weight:600}
+.mode-tabs button:disabled{opacity:.32;cursor:not-allowed}
+.side-actions{display:flex;gap:8px}
+.side-btn{
+  flex:1;
+  background:transparent;
+  border:1px solid rgba(255,255,255,.18);
+  color:#e4d7c2;
+  border-radius:6px;
+  padding:7px 0;
+  font-size:11px;
+  font-family:var(--sans);
+  cursor:pointer;
+  transition:border-color .14s ease,color .14s ease;
+}
+.side-btn:hover:not(:disabled){border-color:#d8a13c;color:#f0c67a}
+.side-btn:disabled{opacity:.32;cursor:not-allowed}
+.side-hint{
+  font-size:11px;
+  line-height:1.65;
+  color:#a99a83;
+  margin:0;
+  min-height:38px;
+  padding-top:9px;
+  border-top:1px solid rgba(255,255,255,.08);
+}
+.side-hint.error{color:#f0a28e}
+.legend-block{margin-top:auto;padding-top:10px;border-top:1px solid rgba(255,255,255,.08)}
+.legend-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px 8px}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:9.5px;line-height:1.3;color:#a99a83;white-space:nowrap}
+.legend-pawn{width:9px;height:9px;flex:0 0 auto;border-radius:50%;background:#d8a13c}
+.legend-pawn.ai{border-radius:2px;background:#7fa3b5}
+.legend-wall{width:16px;height:4px;flex:0 0 auto;border-radius:2px;background:#3b2d1e;box-shadow:inset 0 0 0 1px #17110a}
+.legend-dot{width:7px;height:7px;flex:0 0 auto;border-radius:50%;background:#d8a13c;opacity:.88}
+.legend-ring{width:9px;height:9px;flex:0 0 auto;border:1.5px solid #d8a13c;border-radius:50%;opacity:.75}
+.legend-goal{width:14px;height:8px;flex:0 0 auto;border-left:2px solid #a8412a;border-radius:1px;background:rgba(168,65,42,.35)}
+.side-foot{margin:2px 0 0;font-size:9.5px;line-height:1.55;color:#786a57}
+.proto-overlay{
+  position:absolute;
+  inset:0;
+  z-index:5;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  background:rgba(18,14,10,.46);
+  backdrop-filter:blur(2.5px);
+}
+.proto-overlay.hidden{display:none}
+.overlay-card{
+  width:100%;
+  max-width:308px;
+  max-height:calc(100% - 16px);
+  overflow:auto;
+  background:#f7f0e4;
+  color:#221c14;
+  border-radius:12px;
+  padding:21px;
+  box-shadow:0 24px 50px -20px rgba(0,0,0,.6);
+}
+.overlay-kicker{
+  font-family:var(--mono);
+  font-size:9px;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  color:#9c8a6f;
+  margin:0 0 7px;
+}
+.overlay-card h3{font-family:var(--serif);font-size:23px;line-height:1.25;margin:0 0 7px}
+.overlay-card p{font-size:11.5px;line-height:1.65;color:#5d5344;margin:0 0 13px}
+.seg{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:4px;
+  padding:4px;
+  background:#e5dac6;
+  border-radius:7px;
+  margin-bottom:13px;
+}
+.seg button{
+  border:0;
+  background:transparent;
+  color:#6a5c47;
+  font-size:11.5px;
+  font-family:var(--sans);
+  padding:7px 3px;
+  border-radius:4px;
+  cursor:pointer;
+}
+.seg button.active{background:#221c14;color:#f6eedf;font-weight:600}
+.overlay-actions{display:flex;flex-direction:column;gap:8px}
+.btn-primary{
+  width:100%;
+  border:0;
+  background:var(--accent);
+  color:#fff5ea;
+  padding:10px 14px;
+  border-radius:5px;
+  font-size:12.5px;
+  font-family:var(--sans);
+  cursor:pointer;
+}
+.btn-primary:hover{background:#963722}
+.btn-ghost{
+  width:100%;
+  border:1px solid #cdbfa8;
+  background:transparent;
+  color:#6a5c47;
+  padding:9px 14px;
+  border-radius:5px;
+  font-size:11.5px;
+  font-family:var(--sans);
+  cursor:pointer;
+}
+.btn-ghost:hover{border-color:#a8412a;color:#a8412a}
+.overlay-foot{margin-top:11px !important;color:#9b8c73 !important;font-size:10px !important}
+.modal{z-index:6;background:rgba(14,11,8,.74)}
+.modal-card{max-width:376px}
+.modal-body{font-size:11.5px;line-height:1.75;color:#4f4638}
+.modal-body ul{margin:0 0 10px;padding-left:17px}
+.modal-body li{margin-bottom:5px}
+.modal-body .rule-line{border-top:1px solid #e2d6c2;padding-top:9px;margin-top:9px;color:#7d6e59}
+.modal-body .rule-line strong{color:#4f4638}
+.proto-toast{
+  position:absolute;
+  left:50%;
+  top:15px;
+  transform:translateX(-50%);
+  z-index:4;
+  max-width:82%;
+  padding:7px 12px;
+  border-radius:5px;
+  background:rgba(35,25,18,.93);
+  border:1px solid rgba(240,162,142,.35);
+  color:#f3d9cf;
+  font-size:11px;
+  line-height:1.5;
+  text-align:center;
+  pointer-events:none;
+  opacity:0;
+  transition:opacity .18s ease;
+}
+.proto-toast.show{opacity:1}
+.proto-toast.hidden{display:none}
+.proto-caption{font-size:11px;color:var(--muted);line-height:1.65;margin:12px 0 0}
+.shake{animation:shake .28s ease}
+@keyframes shake{
+  0%,100%{transform:translateX(0)}
+  22%{transform:translateX(-4px)}
+  44%{transform:translateX(4px)}
+  66%{transform:translateX(-2px)}
+  88%{transform:translateX(2px)}
+}
+@keyframes pulse{
+  0%,100%{opacity:1}
+  50%{opacity:.45}
+}
+
+/* ---------- SVG board ---------- */
+.gl{stroke:#5b452c;stroke-opacity:.3;stroke-width:1}
+.board-edge{fill:none;stroke:#5b452c;stroke-opacity:.55;stroke-width:2}
+.goal-label{font-family:var(--sans);font-size:12px;font-weight:600;letter-spacing:.06em;opacity:.95}
+.goal-label.human{fill:#e8b09a}
+.goal-label.ai{fill:#a8c8d2}
+.pawn{transition:transform .19s cubic-bezier(.22,.8,.32,1)}
+.pawn text{
+  font-family:var(--sans);
+  font-size:9px;
+  font-weight:700;
+  text-anchor:middle;
+  dominant-baseline:central;
+  pointer-events:none;
+}
+.pawn.human text{fill:#2b1d08}
+.pawn.ai text{fill:#e9f3f6}
+.legal-dot{fill:#d8a13c;opacity:.88}
+.legal-ring{fill:none;stroke:#d8a13c;stroke-width:2;opacity:.6}
+.last-mark{fill:none;stroke:#f0d9a8;stroke-width:1.4;stroke-dasharray:3 3;opacity:.62}
+.wall{fill:#3b2d1e;stroke:#17110a;stroke-width:1}
+.wall.enter{animation:wallIn .17s ease-out}
+.preview-valid{fill:#e0ad4a;opacity:.55;stroke:#f7dfae;stroke-width:1}
+.preview-invalid{fill:#c14a3a;opacity:.5;stroke:#f0a28e;stroke-width:1}
+@keyframes wallIn{from{opacity:0}to{opacity:1}}
+
+@media (max-width:1040px){
+  .page{grid-template-columns:1fr;gap:0;padding:0 28px}
+  .toc{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:26px 0 18px}
+  .toc nav{flex-direction:row;flex-wrap:wrap;gap:4px 14px}
+  .toc a{border-left:0;padding:2px 0;border-bottom:1px solid transparent}
+  .toc a.active{border-left:0;border-bottom-color:var(--accent)}
+  .toc-sub{margin-bottom:14px}
+  .toc-foot{display:none}
+  .doc{padding-top:34px;max-width:none}
+}
+@media (max-width:860px){
+  .hero-grid{grid-template-columns:1fr}
+  .hero-art{display:none}
+  .meta{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .meta div:nth-child(2){border-right:0}
+  .meta div:nth-child(3),.meta div:nth-child(4){padding-top:12px}
+  .proto-grid{grid-template-columns:1fr}
+  .proto-side{padding:2px 2px 0}
+  .side-foot{margin-top:8px}
+  .req{grid-template-columns:1fr;gap:8px}
+  .req-id{padding-top:0}
+  .ui-grid{grid-template-columns:1fr}
+}
+@media (max-width:560px){
+  .page{padding:0 18px}
+  .proto{padding:10px;border-radius:14px}
+  .section-head{gap:10px}
+  .section-sub{display:none}
+  h2{font-size:28px}
+  .overlay-card{padding:17px}
+  .table{font-size:12px}
+  .table th,.table td{padding:8px 8px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <aside class="toc">
+    <p class="toc-brand">界行<span>.</span></p>
+    <p class="toc-sub">Product Requirements</p>
+    <nav>
+      <a href="#background"><span>01</span>背景与目标</a>
+      <a href="#scope"><span>02</span>范围</a>
+      <a href="#model"><span>03</span>产品模型</a>
+      <a href="#prototype"><span>04</span>可试玩原型</a>
+      <a href="#requirements"><span>05</span>功能需求</a>
+      <a href="#rules"><span>06</span>共享规则</a>
+      <a href="#interface"><span>07</span>界面与交互</a>
+      <a href="#questions"><span>08</span>待决问题</a>
+    </nav>
+    <div class="toc-foot">
+      版本 v0.9 · 评审稿<br>
+      13×13 挡板对战棋<br>
+      2026-10-23
+    </div>
+  </aside>
+
+  <main class="doc">
+    <header class="hero">
+      <div class="hero-grid">
+        <div>
+          <p class="kicker">产品需求文档 · PRD</p>
+          <h1>界行<span class="title-dot">.</span></h1>
+          <p class="hero-sub">13×13 挡板对战棋 · 网页人机对战</p>
+          <p class="hero-lede">一款打开即玩的网页棋盘对战游戏。双方在 13×13 的棋盘上交替移动或放置挡板，先抵达对方底线者获胜。玩家执下方棋子先行，机器人执上方棋子，提供简单、困难、地狱三档难度。</p>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <svg viewBox="0 0 260 260">
+            <defs>
+              <radialGradient id="heroWood" cx="40%" cy="30%" r="80%">
+                <stop offset="0%" stop-color="#e6d1ac"/>
+                <stop offset="62%" stop-color="#d3b98f"/>
+                <stop offset="100%" stop-color="#b99a6e"/>
+              </radialGradient>
+              <pattern id="heroGrid" width="17.846" height="17.846" patternUnits="userSpaceOnUse" x="14" y="14">
+                <path d="M17.846 0H0V17.846" fill="none" stroke="#5c452c" stroke-opacity=".26" stroke-width="1"/>
+              </pattern>
+              <linearGradient id="heroHuman" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#e3b45a"/>
+                <stop offset="100%" stop-color="#b48127"/>
+              </linearGradient>
+              <linearGradient id="heroAi" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#5c7f8d"/>
+                <stop offset="100%" stop-color="#304c57"/>
+              </linearGradient>
+            </defs>
+            <rect x="14" y="14" width="232" height="232" rx="6" fill="url(#heroWood)" stroke="#5c452c" stroke-opacity=".4"/>
+            <rect x="14" y="14" width="232" height="232" rx="6" fill="url(#heroGrid)"/>
+            <rect x="85" y="100.5" width="36" height="6" rx="2" fill="#3b2d1e" opacity=".9"/>
+            <circle cx="130" cy="222" r="10" fill="url(#heroHuman)" stroke="#79541a" stroke-width="1.2"/>
+            <text x="130" y="222" text-anchor="middle" dominant-baseline="central" font-family="PingFang SC,Microsoft YaHei,sans-serif" font-size="7.5" font-weight="700" fill="#2b1d08">你</text>
+            <rect x="119" y="27" width="22" height="22" rx="4" fill="url(#heroAi)" stroke="#263b44" stroke-width="1.2"/>
+            <text x="130" y="38" text-anchor="middle" dominant-baseline="central" font-family="PingFang SC,Microsoft YaHei,sans-serif" font-size="7" font-weight="700" fill="#e9f3f6">AI</text>
+            <line x1="14" y1="117" x2="14" y2="246" stroke="#a8412a" stroke-width="2" opacity=".7"/>
+          </svg>
+          <div class="seal">界</div>
+        </div>
+      </div>
+      <dl class="meta">
+        <div><dt>版本</dt><dd>v0.9 · 评审稿</dd></div>
+        <div><dt>日期</dt><dd>2026-10-23</dd></div>
+        <div><dt>状态</dt><dd>待评审</dd></div>
+        <div><dt>范围</dt><dd>P0 · 人机对战</dd></div>
+      </dl>
+    </header>
+
+    <section class="section" id="background">
+      <div class="section-head">
+        <span class="section-num">01</span>
+        <h2>背景与目标</h2>
+        <span class="section-sub">Context &amp; Goals</span>
+      </div>
+      <p class="lede">网页上的轻量棋类常在两件事上失衡：规则解释成本过高，或者机器人只会“能走”而没有可感知的难度梯度。13×13 挡板棋把每回合压缩为两个动作——移动一格，或放下一块两格长的挡板——却让“绕路”成为持续发生的策略问题。</p>
+      <p>本产品把这种对抗做成打开即玩的单页网页：玩家在下方出生点先行，机器人在上方应战，先抵达对方底线行的一方获胜。产品的核心不是功能数量，而是让第一次访问的人在一局之内理解规则，并能在三档难度中感受到真实的决策差异。</p>
+
+      <h3>目标</h3>
+      <ul class="list">
+        <li><strong>规则自助：</strong>首次访问的用户无需阅读长文档，即可完成第一步移动和第一次挡板放置。</li>
+        <li><strong>难度可感知：</strong>简单、困难、地狱三档在同一规则、同一资源、同一信息下呈现不同的决策质量。</li>
+        <li><strong>对局闭环：</strong>每一局都以明确的胜负结算结束，并可立即再来一局或调整难度。</li>
+      </ul>
+
+      <h3>产品契约</h3>
+      <table class="table">
+        <thead><tr><th>项目</th><th>定义</th></tr></thead>
+        <tbody>
+          <tr><td class="nowrap"><strong>主要用户</strong></td><td>使用桌面浏览器、希望进行一局短时策略对弈的单人玩家。</td></tr>
+          <tr><td class="nowrap"><strong>触发</strong></td><td>打开网页。</td></tr>
+          <tr><td class="nowrap"><strong>核心任务</strong></td><td>在 13×13 棋盘上交替移动或放置挡板，先于机器人抵达对方底线行。</td></tr>
+          <tr><td class="nowrap"><strong>完成条件</strong></td><td>任一方棋子进入对方底线行，出现胜负结算，且结算后可立即开始下一局。</td></tr>
+          <tr><td class="nowrap"><strong>公平条件</strong></td><td>机器人使用与玩家相同的规则、相同的挡板数量与相同的可见信息，不进行非法或隐藏操作。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section" id="scope">
+      <div class="section-head">
+        <span class="section-num">02</span>
+        <h2>范围</h2>
+        <span class="section-sub">Scope</span>
+      </div>
+      <p class="lede">本期只交付一条最小但完整的旅程：进入页面、选定难度、完成对局、结算、再来一局。任何不参与这条旅程的能力都不进入 P0。</p>
+
+      <table class="table">
+        <thead><tr><th>P0 范围</th><th>包含内容</th><th>为什么必须</th></tr></thead>
+        <tbody>
+          <tr><td class="nowrap"><strong>对局核心</strong></td><td>移动、跳跃、挡板放置、胜负判定。</td><td>构成一局完整对局的最小规则集合。</td></tr>
+          <tr><td class="nowrap"><strong>机器人与难度</strong></td><td>三档难度、开局选择、机器人合法行动。</td><td>单人玩家需要对手，且需要可选择的对局强度。</td></tr>
+          <tr><td class="nowrap"><strong>交互与反馈</strong></td><td>合法落点、挡板预览、非法操作原因。</td><td>规则必须通过操作被解释，而不是只写在说明里。</td></tr>
+          <tr><td class="nowrap"><strong>对局信息</strong></td><td>当前回合、双方挡板余量、目标线、难度。</td><td>玩家不应依赖记忆维持对局状态。</td></tr>
+          <tr><td class="nowrap"><strong>结算与重开</strong></td><td>胜负展示、再来一局、调整难度。</td><td>完成对局闭环，避免“赢了以后无事可做”。</td></tr>
+          <tr><td class="nowrap"><strong>规则查阅</strong></td><td>游戏内规则面板。</td><td>降低首次理解成本，支持对局中确认边界规则。</td></tr>
+          <tr><td class="nowrap"><strong>本地运行</strong></td><td>桌面浏览器、无需登录、加载后不依赖服务端。</td><td>“打开即玩”的前提。</td></tr>
+        </tbody>
+      </table>
+
+      <h3>后续与暂不包含</h3>
+      <table class="table">
+        <thead><tr><th>类别</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td class="nowrap"><strong>P1 候选</strong></td><td>本地同屏双人、手机竖屏专属布局、音效、战绩与回放、悔棋与提示。</td></tr>
+          <tr><td class="nowrap"><strong>明确不做</strong></td><td>在线联机、账号体系、匹配、排行榜、观战、AI 自适应难度。</td></tr>
+        </tbody>
+      </table>
+      <p class="small muted">“双人对战”在本期指一名真人与机器人之间的对局；真人同屏与在线真人对抗不在本期范围。</p>
+
+      <h3>最小完整旅程</h3>
+      <div class="flow">
+        <span class="flow-step">打开页面</span><span class="flow-arrow">→</span>
+        <span class="flow-step">选择难度</span><span class="flow-arrow">→</span>
+        <span class="flow-step accent">开始对局 · 你先行</span><span class="flow-arrow">→</span>
+        <span class="flow-step">移动 / 跳跃 / 放置挡板</span><span class="flow-arrow">→</span>
+        <span class="flow-step">机器人回应</span><span class="flow-arrow">→</span>
+        <span class="flow-step">抵达对方底线</span><span class="flow-arrow">→</span>
+        <span class="flow-step">结算</span><span class="flow-arrow">→</span>
+        <span class="flow-step">再来一局 / 调整难度</span>
+      </div>
+      <h3>关键恢复路径</h3>
+      <ul class="list">
+        <li><strong>非法操作：</strong>提示原因，不改变棋盘、库存与回合。</li>
+        <li><strong>重新开始：</strong>玩家回合内可用，需二次确认，当前对局作废。</li>
+        <li><strong>刷新或关闭页面：</strong>当前对局不保存，重新打开回到准备阶段。</li>
+      </ul>
+    </section>
+
+    <section class="section" id="model">
+      <div class="section-head">
+        <span class="section-num">03</span>
+        <h2>产品模型</h2>
+        <span class="section-sub">Product Model</span>
+      </div>
+      <p class="lede">棋盘是唯一的策略对象。所有规则、界面反馈与机器人决策都围绕“棋盘格、棋子、挡板、通路”这四个对象展开。</p>
+
+      <h3>3.1 对局双方</h3>
+      <table class="table">
+        <thead><tr><th>角色</th><th>棋子</th><th>出生点</th><th>目标行</th><th>先后手</th></tr></thead>
+        <tbody>
+          <tr><td><strong>你</strong></td><td>琥珀色圆形棋子</td><td>(7, 13)，下方中点</td><td>第 1 行</td><td>先手</td></tr>
+          <tr><td><strong>机器人</strong></td><td>深青色方形棋子</td><td>(7, 1)，上方中点</td><td>第 13 行</td><td>后手</td></tr>
+        </tbody>
+      </table>
+      <p class="small muted">坐标统一写作 (列, 行)，行列均从 1 开始，自左向右、自上而下计数。</p>
+      <div class="callout">
+        <strong>出生点即对方的目标行。</strong>你出生在第 13 行中点，机器人出生在第 1 行中点；因此“走到对方出生点所在的那一行”就是胜利条件。
+      </div>
+
+      <figure class="board-figure">
+        <svg viewBox="0 0 340 372" role="img" aria-label="棋盘结构示意：上下出生点与目标线">
+          <defs>
+            <pattern id="figGrid" width="20" height="20" patternUnits="userSpaceOnUse" x="40" y="40">
+              <path d="M20 0H0V20" fill="none" stroke="#5b452c" stroke-opacity=".22" stroke-width="1"/>
+            </pattern>
+            <linearGradient id="figHuman" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#e3b45a"/>
+              <stop offset="100%" stop-color="#b48127"/>
+            </linearGradient>
+            <linearGradient id="figAi" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#5c7f8d"/>
+              <stop offset="100%" stop-color="#304c57"/>
+            </linearGradient>
+          </defs>
+          <rect x="40" y="40" width="260" height="260" rx="4" fill="#e6d6b8"/>
+          <rect x="40" y="40" width="260" height="260" rx="4" fill="url(#figGrid)"/>
+          <rect x="40" y="40" width="260" height="20" fill="#a8412a" opacity=".12"/>
+          <rect x="40" y="280" width="260" height="20" fill="#3f6270" opacity=".14"/>
+          <rect x="40" y="40" width="260" height="260" fill="none" stroke="#5b452c" stroke-opacity=".5" stroke-width="1.5"/>
+          <line x1="40" y1="60" x2="300" y2="60" stroke="#a8412a" stroke-width="1.4" opacity=".5"/>
+          <line x1="40" y1="280" x2="300" y2="280" stroke="#3f6270" stroke-width="1.4" opacity=".5"/>
+          <circle cx="170" cy="290" r="9" fill="url(#figHuman)" stroke="#79541a" stroke-width="1"/>
+          <rect x="161" y="41" width="18" height="18" rx="3" fill="url(#figAi)" stroke="#263b44" stroke-width="1"/>
+          <text x="170" y="24" text-anchor="middle" font-family="PingFang SC,Microsoft YaHei,sans-serif" font-size="11.5" font-weight="600" fill="#a8412a">机器人出生点 · 你的终点线（第 1 行）</text>
+          <text x="170" y="346" text-anchor="middle" font-family="PingFang SC,Microsoft YaHei,sans-serif" font-size="11.5" font-weight="600" fill="#3f6270">你的出生点 · 机器人的终点线（第 13 行）</text>
+          <text x="170" y="366" text-anchor="middle" font-family="PingFang SC,Microsoft YaHei,sans-serif" font-size="9" fill="#8a8071">13 × 13 · 90° 正俯视</text>
+        </svg>
+        <figcaption>双方各在对方的目标行中点出生；谁先走完 12 行到达对侧，谁获胜。</figcaption>
+      </figure>
+
+      <h3>3.2 对象与术语</h3>
+      <table class="table">
+        <thead><tr><th>对象</th><th>定义</th></tr></thead>
+        <tbody>
+          <tr><td class="nowrap"><strong>棋盘格</strong></td><td>13×13 共 169 个格子，每个格子最多容纳一枚棋子。</td></tr>
+          <tr><td class="nowrap"><strong>棋子</strong></td><td>双方各一枚；移动与跳跃的最小单位都是“一格”。</td></tr>
+          <tr><td class="nowrap"><strong>挡板槽</strong></td><td>相邻两格之间的边缝。横向与竖向各存在 12×12 个可放置位置，一个挡板覆盖两个连续的格子。</td></tr>
+          <tr><td class="nowrap"><strong>挡板</strong></td><td>两格长的阻挡物，只存在于格子之间，不占据格子。双方各 10 块，归属只影响剩余数量，阻挡效果对双方相同。</td></tr>
+          <tr><td class="nowrap"><strong>通路</strong></td><td>从当前格出发，只经上下左右相邻格到达目标行任意格的连续路径。判定通路时只看棋盘边界与挡板，不考虑棋子占位。</td></tr>
+          <tr><td class="nowrap"><strong>回合</strong></td><td>一方完成且仅完成一个动作（移动、跳跃或放置挡板）的时间单位。</td></tr>
+        </tbody>
+      </table>
+
+      <h3>3.3 对局状态</h3>
+      <table class="table status-table">
+        <thead><tr><th>状态</th><th>进入条件</th><th>玩家可做</th><th>退出条件</th></tr></thead>
+        <tbody>
+          <tr><td><strong>准备</strong></td><td>页面加载完成，或从结算选择“调整难度”。</td><td>选择难度、查阅规则、开始对局。</td><td>点击开始对局 → 玩家回合。</td></tr>
+          <tr><td><strong>玩家回合</strong></td><td>对局开始，或机器人完成行动。</td><td>移动、跳跃、放置挡板、查阅规则、重新开始。</td><td>有效行动后无胜者 → 机器人回合；抵达目标行 → 结算。</td></tr>
+          <tr><td><strong>机器人回合</strong></td><td>玩家完成有效行动且无人获胜。</td><td>无；棋盘只读。</td><td>机器人完成行动 → 玩家回合或结算。</td></tr>
+          <tr><td><strong>结算</strong></td><td>任一方抵达对方目标行。</td><td>再来一局、调整难度、查阅规则。</td><td>再来一局 → 玩家回合；调整难度 → 准备。</td></tr>
+        </tbody>
+      </table>
+      <p class="small muted">禁止操作：机器人回合与结算阶段操作棋盘；对局进行中切换难度；跳过回合或连续执行两个动作。</p>
+
+      <h3>3.4 回合循环</h3>
+      <div class="flow">
+        <span class="flow-step accent">玩家行动</span><span class="flow-arrow">→</span>
+        <span class="flow-step">判定胜负</span><span class="flow-arrow">→</span>
+        <span class="flow-step">机器人行动</span><span class="flow-arrow">→</span>
+        <span class="flow-step">判定胜负</span><span class="flow-arrow">→</span>
+        <span class="flow-step">回到玩家</span>
+      </div>
+      <p class="small muted">每个动作结束后立即判定；一旦有人进入对方目标行，对局在该动作完成时结束，不再进入对方回合。</p>
+    </section>
+
+    <section class="section" id="prototype">
+      <div class="section-head">
+        <span class="section-num">04</span>
+        <h2>可试玩原型</h2>
+        <span class="section-sub">Playable Demo</span>
+      </div>
+      <p class="lede">下面的原型在文档内直接运行，使用与正文相同的规则定义，覆盖 FR-01 至 FR-09 的核心行为。视觉仅作示意，正式界面规范见第 07 章。</p>
+
+      <div class="proto">
+        <div class="proto-grid">
+          <div class="board-holder" id="boardHolder">
+            <svg id="boardSvg" viewBox="0 0 620 620" role="img" aria-label="13乘13棋盘对战原型">
+              <defs>
+                <radialGradient id="boardWood" cx="42%" cy="32%" r="80%">
+                  <stop offset="0%" stop-color="#e6d1ac"/>
+                  <stop offset="58%" stop-color="#d3b98f"/>
+                  <stop offset="100%" stop-color="#b99a6e"/>
+                </radialGradient>
+                <linearGradient id="humanGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#e6b75d"/>
+                  <stop offset="100%" stop-color="#b27f27"/>
+                </linearGradient>
+                <linearGradient id="aiGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#5f8492"/>
+                  <stop offset="100%" stop-color="#2f4a55"/>
+                </linearGradient>
+                <filter id="softShadow" x="-60%" y="-60%" width="220%" height="220%">
+                  <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#1b1208" flood-opacity=".42"/>
+                </filter>
+              </defs>
+              <rect x="0" y="0" width="620" height="620" fill="#2a2218"/>
+              <rect x="37" y="37" width="546" height="546" rx="4" fill="url(#boardWood)"/>
+              <g id="goalLayer"></g>
+              <g id="gridLayer"></g>
+              <g id="markLayer"></g>
+              <g id="wallLayer"></g>
+              <g id="pawnLayer"></g>
+              <g id="previewLayer"></g>
+            </svg>
+
+            <div class="proto-overlay" id="protoOverlay">
+              <div class="overlay-card">
+                <p class="overlay-kicker" id="overlayKicker">开始对局</p>
+                <h3 id="overlayTitle">选择难度</h3>
+                <p id="overlayDesc">机器人执上方棋子后手应战。你执下方棋子，先行。</p>
+                <div class="seg diff-seg" id="difficultyPicker">
+                  <button data-diff="easy" class="active">简单</button>
+                  <button data-diff="hard">困难</button>
+                  <button data-diff="hell">地狱</button>
+                </div>
+                <div class="overlay-actions">
+                  <button class="btn-primary" id="startBtn">开始对局</button>
+                  <div id="resultActions" hidden>
+                    <button class="btn-primary" id="againBtn">再来一局</button>
+                    <button class="btn-ghost" id="changeDiffBtn">调整难度</button>
+                  </div>
+                </div>
+                <p class="overlay-foot" id="overlayFoot">每回合二选一：移动一格，或放置一块两格长的挡板。</p>
+              </div>
+            </div>
+
+            <div class="proto-overlay modal hidden" id="modal">
+              <div class="overlay-card modal-card">
+                <p class="overlay-kicker" id="modalKicker">RULES</p>
+                <h3 id="modalTitle">规则</h3>
+                <div class="modal-body" id="modalBody"></div>
+                <div class="overlay-actions" id="modalActions"></div>
+              </div>
+            </div>
+
+            <div class="proto-toast hidden" id="toast"></div>
+          </div>
+
+          <aside class="proto-side">
+            <div class="side-head">
+              <span class="side-eyebrow">本局状态</span>
+              <span class="diff-badge" id="diffBadge">简单</span>
+            </div>
+            <div class="turn-block">
+              <span class="turn-dot" id="turnDot"></span>
+              <div>
+                <p id="turnLabel">等待开始</p>
+                <p id="turnSub">选择难度后开始</p>
+              </div>
+            </div>
+            <div class="stock-block">
+              <div class="stock-row">
+                <span class="stock-side"><i class="mini-pawn human"></i>你</span>
+                <span class="pips" id="humanPips"></span>
+                <span class="stock-num" id="humanCount">10</span>
+              </div>
+              <div class="stock-row">
+                <span class="stock-side"><i class="mini-pawn ai"></i>机器人</span>
+                <span class="pips ai" id="aiPips"></span>
+                <span class="stock-num" id="aiCount">10</span>
+              </div>
+            </div>
+            <div class="mode-block">
+              <p class="side-label">操作模式</p>
+              <div class="mode-tabs" id="modeTabs">
+                <button data-mode="move" class="active">移动</button>
+                <button data-mode="h">横板</button>
+                <button data-mode="v">竖板</button>
+              </div>
+            </div>
+            <div class="side-actions">
+              <button class="side-btn" id="restartBtn">重新开始</button>
+              <button class="side-btn" id="rulesBtn">规则</button>
+            </div>
+            <p class="side-hint" id="hint">点击高亮格移动；选择“横板/竖板”后，点击格子之间的缝隙放置挡板。</p>
+            <div class="legend-block">
+              <p class="side-label">图例</p>
+              <div class="legend-grid">
+                <span class="legend-item"><i class="legend-pawn"></i>你 · 圆形</span>
+                <span class="legend-item"><i class="legend-pawn ai"></i>机器人 · 方形</span>
+                <span class="legend-item"><i class="legend-wall"></i>挡板</span>
+                <span class="legend-item"><i class="legend-dot"></i>可移动</span>
+                <span class="legend-item"><i class="legend-ring"></i>可跳跃</span>
+                <span class="legend-item"><i class="legend-goal"></i>终点行</span>
+              </div>
+            </div>
+            <p class="side-foot">原型与正文共用同一套规则定义（R-01 至 R-08）。视觉为示意，正式界面规范见第 07 章。</p>
+          </aside>
+        </div>
+      </div>
+      <p class="proto-caption">原型覆盖 FR-01 至 FR-09。触屏放置挡板采用两步确认：首次点击预览，再次点击同一位置确认。三档 AI 均会依据难度使用挡板。</p>
+    </section>
+
+    <section class="section" id="requirements">
+      <div class="section-head">
+        <span class="section-num">05</span>
+        <h2>功能需求</h2>
+        <span class="section-sub">Functional Requirements</span>
+      </div>
+      <p class="lede">每条需求描述触发条件、处理规则、结果与状态变化；具体规则细节统一引用第 06 章的 R 编号，不在多处重复定义。</p>
+      <article class="req" id="fr-01">
+        <div class="req-id">FR-01<span>开局与难度</span></div>
+        <div>
+          <h3>难度选择与开始对局</h3>
+          <p class="req-purpose">让玩家在进入棋盘前明确对手强度，并保证每局开始状态唯一。</p>
+          <dl class="req-grid">
+            <dt>触发</dt>
+            <dd>页面加载完成；或结算后选择“调整难度”。</dd>
+            <dt>处理</dt>
+            <dd>展示<strong>简单 / 困难 / 地狱</strong>三档选项，默认选中“简单”；玩家确认后点击“开始对局”。开局时机器人按所选难度初始化，玩家获得先手。</dd>
+            <dt>结果</dt>
+            <dd>棋盘回到初始位置，双方各 10 块挡板，状态进入<strong>玩家回合</strong>；难度在状态区常驻显示。</dd>
+            <dt>边界</dt>
+            <dd>对局开始后难度锁定；如需更换，必须回到准备阶段重新开局。重新开始保留当前难度。</dd>
+          </dl>
+        </div>
+      </article>
+
+      <article class="req" id="fr-02">
+        <div class="req-id">FR-02<span>棋盘呈现</span></div>
+        <div>
+          <h3>棋盘与对局信息</h3>
+          <p class="req-purpose">让棋盘成为唯一视觉焦点，玩家不必记忆任何关键状态。</p>
+          <dl class="req-grid">
+            <dt>触发</dt>
+            <dd>进入对局，或任意状态发生变化。</dd>
+            <dt>处理</dt>
+            <dd>以 90° 正俯视呈现 13×13 棋盘；顶部色带标注“你的终点线（第 1 行）”，底部色带标注“机器人的终点线（第 13 行）”。常驻显示当前回合、双方挡板余量、难度与上一手位置。</dd>
+            <dt>结果</dt>
+            <dd>玩家在任何时刻都能判断：轮到谁、双方还剩多少挡板、自己的目标行在哪里。</dd>
+            <dt>边界</dt>
+            <dd>窄视口下棋盘等比缩放，不裁切、不产生横向滚动；当棋盘小于可操作尺寸时，优先提示使用更宽的窗口，而不是压缩点击区域。</dd>
+          </dl>
+        </div>
+      </article>
+
+      <article class="req" id="fr-03">
+        <div class="req-id">FR-03<span>移动</span></div>
+        <div>
+          <h3>移动一格</h3>
+          <p class="req-purpose">提供最基础、最频繁的回合动作。</p>
+          <dl class="req-grid">
+            <dt>触发</dt>
+            <dd>你的回合，处于“移动”模式，点击一个合法的相邻空格。</dd>
+            <dt>处理</dt>
+            <dd>按 <span class="req-ref">R-02</span> 校验：目标在棋盘内、与当前格上下左右相邻、两格之间没有挡板、目标格为空。合法落点在回合开始时即常驻高亮。</dd>
+            <dt>结果</dt>
+            <dd>棋子移动到目标格，回合交给机器人；若棋子进入第 1 行，立即结算为胜利。</dd>
+            <dt>边界</dt>
+            <dd>被挡板封住的方向不出现落点；点击非高亮格提示具体原因，且不消耗回合。</dd>
+          </dl>
+        </div>
+      </article>
+
+      <article class="req" id="fr-04">
+        <div class="req-id">FR-04<span>跳跃</span></div>
+        <div>
+          <h3>跳过对手</h3>
+          <p class="req-purpose">保证两枚棋子相邻时仍存在可执行的动作，同时避免棋子互相堵死。</p>
+          <dl class="req-grid">
+            <dt>触发</dt>
+            <dd>你尝试移动的方向上，相邻格被机器人占据，且你与该格之间没有挡板。</dd>
+            <dt>处理</dt>
+            <dd>按 <span class="req-ref">R-03</span> 依次尝试：正后方可达时执行直线跳跃；正后方越界或被挡板隔开时，在对手两侧计算斜跳落点；两种跳跃都不可行时，该方向不可移动。</dd>
+            <dt>结果</dt>
+            <dd>跳跃与普通移动同属一个动作，不额外消耗回合；跳跃落入第 1 行同样立即获胜。</dd>
+            <dt>边界</dt>
+            <dd>不能跳过棋盘边界或挡板，不能落在对手所在格；斜跳落点必须为空，且对手与落点之间不能有挡板。无合法落点时该方向不显示任何标记。</dd>
+          </dl>
+        </div>
+      </article>
+
+      <article class="req" id="fr-05">
+        <div class="req-id">FR-05<span>挡板</span></div>
+        <div>
+          <h3>放置挡板</h3>
+          <p class="req-purpose">让玩家通过改变地形争夺路线优势，这是本作区别于普通走格子游戏的核心。</p>
+          <dl class="req-grid">
+            <dt>触发</dt>
+            <dd>你的回合，切换至“横板”或“竖板”模式，并在两个格子之间的缝隙上确认放置。</dd>
+            <dt>处理</dt>
+            <dd>按 <span class="req-ref">R-04</span> 与 <span class="req-ref">R-05</span> 校验：库存大于 0、位置在棋盘内部、不与既有挡板重叠、横竖挡板允许 L 形与 T 形相接（仅禁止双方中段相交的十字形）、放置后双方都至少保留一条通路。悬停显示半透明预览；触屏首次点击预览，再次点击同一位置确认。</dd>
+            <dt>结果</dt>
+            <dd>挡板固定到棋盘，库存减 1，回合交给机器人；操作模式回到“移动”。</dd>
+            <dt>边界</dt>
+            <dd>非法放置不改变棋盘与库存，也不消耗回合，预览与提示直接说明原因；库存为 0 或不存在任何合法槽位时，横板 / 竖板模式不可用。</dd>
+          </dl>
+        </div>
+      </article>
+
+      <article class="req" id="fr-06">
+        <div class="req-id">FR-06<span>机器人</span></div>
+        <div>
+          <h3>机器人回合</h3>
+          <p class="req-purpose">让单人玩家始终有一个合法、可预期、强度可选的对手。</p>
+          <dl class="req-grid">
+            <dt>触发</dt>
+            <dd>你的有效行动结束，且无人抵达目标行。</dd>
+            <dt>处理</dt>
+            <dd>锁定棋盘输入，显示“机器人思考中”；机器人依据所选难度选择一个合法行动并执行。三档难度都会使用挡板，差异体现在使用频率、落点选择与对玩家回应的评估深度。行动规则、挡板库存与可见信息与玩家完全一致。</dd>
+            <dt>结果</dt>
+            <dd>行动以与玩家一致的动画与标记呈现，回合回到你；若机器人进入第 13 行，立即结算为你失败。</dd>
+            <dt>边界</dt>
+            <dd>机器人不得跳过回合、连续行动或使用玩家不可见的棋盘信息；若没有合法挡板位置，只能移动。思考期间页面保持可响应，规则入口暂时不可用。</dd>
+          </dl>
+          <h4>三档难度行为</h4>
+          <table class="table">
+            <thead><tr><th>难度</th><th>可观察行为</th><th>适合</th></tr></thead>
+            <tbody>
+              <tr><td class="nowrap"><strong>简单</strong></td><td>大多数回合直接朝目标前进；会偶尔放置挡板，但落点选择随机；对玩家的绕行反应迟钝。</td><td>首次接触规则。</td></tr>
+              <tr><td class="nowrap"><strong>困难</strong></td><td>会在前进与延缓之间取舍，主动用挡板拉长你的路线；对你的近距离推进有封锁意识。</td><td>已熟悉规则，希望有来有回。</td></tr>
+              <tr><td class="nowrap"><strong>地狱</strong></td><td>会评估你对它行动的回应，优先构造长绕行，并在你接近终点时封锁；自身路线效率高。</td><td>希望被认真对抗。</td></tr>
+            </tbody>
+          </table>
+          <div class="callout ink">
+            <strong>难度只来自决策质量。</strong>三档难度使用相同的规则、挡板数量与信息集；具体公平约束见 <span class="req-ref">R-07</span>。
+          </div>
+        </div>
+      </article>
+
+      <article class="req" id="fr-07">
+        <div class="req-id">FR-07<span>回合与拒绝</span></div>
+        <div>
+          <h3>回合推进与非法操作</h3>
+          <p class="req-purpose">保证每一手都只产生一个有效状态变化，并且被拒绝的操作有可理解的原因。</p>
+          <dl class="req-grid">
+            <dt>触发</dt>
+            <dd>任意棋盘操作提交。</dd>
+            <dt>处理</dt>
+            <dd>校验操作者、状态与目标位置；合法则执行唯一动作并交换回合；非法则拒绝并显示原因。常见原因包括：尚未轮到你、目标不是合法落点、方向被挡板封住、跳跃落点不可用、挡板重叠、挡板十字交叉、放置后一方无路可走、挡板已用尽。</dd>
+            <dt>结果</dt>
+            <dd>非法操作不改变棋盘、库存、回合数或上一手标记；对局停留在原状态，玩家可立即重新选择。</dd>
+            <dt>边界</dt>
+            <dd>机器人回合与结算阶段拒绝所有棋盘操作；同一非法操作重复提交时给出相同原因。重新开始仅在玩家回合可用，并且必须二次确认。</dd>
+          </dl>
+        </div>
+      </article>
+
+      <article class="req" id="fr-08">
+        <div class="req-id">FR-08<span>结算</span></div>
+        <div>
+          <h3>胜负结算与再来一局</h3>
+          <p class="req-purpose">明确结束条件，并让玩家无需返回首页即可继续下一局。</p>
+          <dl class="req-grid">
+            <dt>触发</dt>
+            <dd>任一方的棋子在完成一次行动后位于对方目标行。</dd>
+            <dt>处理</dt>
+            <dd>该动作完成时立即冻结对局；展示胜者、难度、结束原因（抵达第 1 行或第 13 行）以及本局总手数；提供“再来一局”与“调整难度”。</dd>
+            <dt>结果</dt>
+            <dd>再来一局重置棋盘与双方库存，保留当前难度，玩家仍为先手；调整难度回到准备阶段。</dd>
+            <dt>边界</dt>
+            <dd>通过跳跃进入目标行同样获胜（见 <span class="req-ref">R-03</span>）；对局结束后不再接受棋盘操作。对局终止规则见 <span class="req-ref">R-06</span>，刷新页面会丢失对局与结算结果。</dd>
+          </dl>
+        </div>
+      </article>
+
+      <article class="req" id="fr-09">
+        <div class="req-id">FR-09<span>规则查阅</span></div>
+        <div>
+          <h3>游戏内规则</h3>
+          <p class="req-purpose">让玩家在准备阶段和思考途中都能确认规则，而不必离开棋盘。</p>
+          <dl class="req-grid">
+            <dt>触发</dt>
+            <dd>准备阶段、玩家回合或结算阶段点击“规则”。</dd>
+            <dt>处理</dt>
+            <dd>打开只读规则面板，内容与第 06 章 R-01 至 R-08 一致；机器人回合时入口不可用，避免玩家在对手行动期间改变上下文。</dd>
+            <dt>结果</dt>
+            <dd>关闭面板后回到打开前的状态；查阅行为不消耗回合、不改变棋盘。</dd>
+            <dt>边界</dt>
+            <dd>规则文案只保留一份权威定义；界面内的简述不得与第 06 章产生冲突。</dd>
+          </dl>
+        </div>
+      </article>
+    </section>
+
+    <section class="section" id="rules">
+      <div class="section-head">
+        <span class="section-num">06</span>
+        <h2>共享规则</h2>
+        <span class="section-sub">Canonical Rules</span>
+      </div>
+      <p class="lede">本章是规则的唯一权威定义。界面提示、机器人决策与验收讨论都以本章为准；其他章节只引用规则编号。</p>
+      <div class="rule">
+        <div class="rule-head"><span class="rule-code">R-01</span><h3>坐标、出生与先手</h3></div>
+        <p>棋盘为 13 列 × 13 行，列自左向右为 1–13，行自上而下为 1–13，坐标统一写作 (列, 行)。你的出生点为 <strong>(7, 13)</strong>，目标行为<strong>第 1 行</strong>；机器人的出生点为 <strong>(7, 1)</strong>，目标行为<strong>第 13 行</strong>。你固定先手。</p>
+      </div>
+
+      <div class="rule">
+        <div class="rule-head"><span class="rule-code">R-02</span><h3>移动</h3></div>
+        <p>每回合必须执行且只能执行一个动作。普通移动为：从当前格走到上下左右相邻的一格，并同时满足以下条件：</p>
+        <ul class="plain-list">
+          <li>目标格在棋盘内；</li>
+          <li>目标格为空；</li>
+          <li>两格之间没有挡板。</li>
+        </ul>
+        <p>除 R-03 规定的跳跃外，不允许斜走、停留或一次移动多格。</p>
+      </div>
+
+      <div class="rule">
+        <div class="rule-head"><span class="rule-code">R-03</span><h3>跳跃</h3></div>
+        <p>当你要移动的方向上，相邻格被对手占据，且你与对手之间没有挡板时，可以跳跃。跳跃优先级固定如下：</p>
+        <ol class="plain-list">
+          <li><strong>直线跳跃：</strong>若对手正后方的格子仍在棋盘内、为空，且对手与该格之间没有挡板，则只能跳到该格。</li>
+          <li><strong>斜向跳跃：</strong>若正后方越界，或对手与正后方之间存在挡板，则可以跳到对手左右两侧（垂直于原移动方向）的相邻空格。落点必须仍在棋盘内，且对手与落点之间没有挡板。</li>
+          <li><strong>不可跳跃：</strong>若直线与斜向都没有合法落点，则该方向不可移动。</li>
+        </ol>
+        <table class="table">
+          <thead><tr><th>相邻情况</th><th>可用动作</th></tr></thead>
+          <tbody>
+            <tr><td>对手不在相邻格，且该格为空、无挡板</td><td>正常移动到该格。</td></tr>
+            <tr><td>对手在相邻格，正后方在棋盘内、为空、无挡板</td><td>只能直线跳到正后方，不提供斜跳选项。</td></tr>
+            <tr><td>对手在相邻格，正后方越界或被挡板隔开</td><td>斜跳到对手两侧的合法空格；两侧都不可用时，该方向不可移动。</td></tr>
+            <tr><td>你与对手所在的相邻格之间存在挡板</td><td>不能进入该格，也不能跳跃。</td></tr>
+          </tbody>
+        </table>
+        <p>跳跃消耗本回合唯一的动作，不额外获得第二次行动；跳跃落在目标行时立即获胜。棋子始终不能停留在对手所在格。</p>
+      </div>
+
+      <div class="rule">
+        <div class="rule-head"><span class="rule-code">R-04</span><h3>挡板的形状与放置</h3></div>
+        <p>每方开局拥有 <strong>10 块</strong>挡板，双方剩余数量始终公开。放置挡板替代本回合的移动动作，消耗一块库存，并且永久留在棋盘上，直到本局结束。</p>
+        <ul class="plain-list">
+          <li><strong>横向挡板：</strong>放在第 r 行与第 r+1 行之间，横跨第 c 列与第 c+1 列，阻止这两列上的上下移动。</li>
+          <li><strong>竖向挡板：</strong>放在第 c 列与第 c+1 列之间，纵跨第 r 行与第 r+1 行，阻止这两行上的左右移动。</li>
+          <li><strong>可放位置：</strong>只存在于棋盘内部的格子缝隙。横向与竖向各 12×12 个锚点，不能放在棋盘外沿。</li>
+          <li><strong>重叠：</strong>两个挡板不得覆盖同一条格子缝隙。同一方向上，两个锚点相距小于 2 格（包括完全相同的位置）即共享边缝，视为重叠。</li>
+          <li><strong>端头与中段相接：</strong>同一方向的挡板可以在端点相接；横向与竖向挡板允许端头对端头，形成 L 形，也允许一块挡板的端头落在另一块挡板的中段，形成 T 形。</li>
+          <li><strong>中间交叉：</strong>仅当交点同时位于两块挡板的中段时，形成十字形，禁止放置。</li>
+          <li><strong>棋子附近：</strong>挡板不占据格子，可以贴着棋子放置，只要不构成重叠或十字交叉，并满足 R-05 的通路约束。</li>
+        </ul>
+        <figure class="join-figure">
+          <svg viewBox="0 0 560 170" role="img" aria-label="挡板连接规则示意：端头相接与 T 形合法，十字形禁止">
+            <text class="join-label ok" x="74" y="22">端头相接 · 合法</text>
+            <text class="join-label ok" x="270" y="22">T 形 · 合法</text>
+            <text class="join-label no" x="466" y="22">十字形 · 禁止</text>
+
+            <g fill="#e6d6b8" stroke="#5b452c" stroke-opacity=".22" stroke-width="1">
+              <rect x="20" y="38" width="108" height="108"/>
+              <path d="M56 38V146M92 38V146M20 74H128M20 110H128" fill="none"/>
+            </g>
+            <g fill="#e6d6b8" stroke="#5b452c" stroke-opacity=".22" stroke-width="1">
+              <rect x="216" y="38" width="108" height="108"/>
+              <path d="M252 38V146M288 38V146M216 74H324M216 110H324" fill="none"/>
+            </g>
+            <g fill="#e6d6b8" stroke="#5b452c" stroke-opacity=".22" stroke-width="1">
+              <rect x="412" y="38" width="108" height="108"/>
+              <path d="M448 38V146M484 38V146M412 74H520M412 110H520" fill="none"/>
+            </g>
+
+            <rect x="20" y="71" width="72" height="6" rx="3" fill="#3b2d1e"/>
+            <rect x="89" y="74" width="6" height="72" rx="3" fill="#3b2d1e"/>
+            <circle cx="92" cy="74" r="4" fill="#3f6270"/>
+
+            <rect x="216" y="71" width="72" height="6" rx="3" fill="#3b2d1e"/>
+            <rect x="249" y="74" width="6" height="72" rx="3" fill="#3b2d1e"/>
+            <circle cx="252" cy="74" r="4" fill="#3f6270"/>
+
+            <rect x="412" y="71" width="72" height="6" rx="3" fill="#3b2d1e"/>
+            <rect x="445" y="38" width="6" height="72" rx="3" fill="#3b2d1e"/>
+            <circle cx="448" cy="74" r="4" fill="#a8412a"/>
+          </svg>
+          <figcaption>端头对端头（L 形）与端头接中段（T 形）均合法；只有交点同时位于双方中段的十字形禁止。</figcaption>
+        </figure>
+      </div>
+
+      <div class="rule">
+        <div class="rule-head"><span class="rule-code">R-05</span><h3>通路保护</h3></div>
+        <p>任何挡板在确认放置前，都必须检查放置后的棋盘：从双方棋子各自当前格出发，仍能通过未被挡板隔断的上下左右移动到达各自目标行的至少一个格子。两条通路都必须存在，否则该挡板不允许放置。</p>
+        <div class="callout">
+          <strong>通路判定不考虑棋子占位。</strong>只依据棋盘边界与挡板判断连通性。原因是棋子可以跳跃，且规则不允许任何一方被完全封死；若把对手棋子当作障碍，会产生与跳跃规则冲突的误判。
+        </div>
+        <p>该约束与挡板离棋子的远近无关：即使挡板放在棋盘另一侧，只要它使某一方失去全部通路，仍然禁止。</p>
+        <div class="callout">
+          <strong>绕远路是允许的。</strong>通路只判断“能否走到”，不限制绕行步数：把对手逼得多走十几步属于合法战术，只有让某一方彻底无路可走时才禁止放置。
+        </div>
+      </div>
+
+      <div class="rule">
+        <div class="rule-head"><span class="rule-code">R-06</span><h3>回合与胜负</h3></div>
+        <ul class="plain-list">
+          <li>你先手；双方交替行动，每回合只执行一个动作。</li>
+          <li>不允许跳过回合、连续行动或撤回已完成的动作。</li>
+          <li>任一方棋子进入对方目标行（你到第 1 行，机器人到第 13 行）时，该次行动完成即获胜。</li>
+          <li>跳跃进入目标行同样获胜；胜负在动作完成时立即判定，不再进入对方回合。</li>
+          <li>本期不设平局、计时与回合上限；玩家可以随时重新开始一局。</li>
+        </ul>
+      </div>
+
+      <div class="rule">
+        <div class="rule-head"><span class="rule-code">R-07</span><h3>机器人公平性</h3></div>
+        <p>机器人必须使用与玩家完全相同的规则、挡板库存、棋盘信息与胜负条件。三档难度之间的差异只能来自决策质量，不允许通过以下方式制造难度：</p>
+        <ul class="plain-list">
+          <li>给机器人额外挡板或放宽移动、跳跃、放置限制；</li>
+          <li>读取玩家的未提交意图、鼠标轨迹或未来操作；</li>
+          <li>在简单档故意执行非法动作，或在地狱档隐藏其行动依据；</li>
+          <li>通过牺牲规则一致性制造“让子”或“补偿”。</li>
+        </ul>
+        <p>机器人完成行动后，其移动、跳跃或挡板必须与玩家操作具有相同的视觉标记与状态提示。</p>
+      </div>
+
+      <div class="rule">
+        <div class="rule-head"><span class="rule-code">R-08</span><h3>非法操作</h3></div>
+        <p>任何违反 R-01 至 R-06 的操作均被拒绝。拒绝时：</p>
+        <ul class="plain-list">
+          <li>棋盘、挡板库存、回合数与上一手标记都不发生变化；</li>
+          <li>界面立即显示具体原因，而不是只给出“操作无效”；</li>
+          <li>操作权仍属于原行动方，玩家可以立即重新选择；</li>
+          <li>机器人回合与结算阶段提交的任何棋盘操作一律拒绝。</li>
+        </ul>
+      </div>
+
+      <h3>边界判定示例</h3>
+      <table class="table">
+        <thead><tr><th>场景</th><th>判定</th></tr></thead>
+        <tbody>
+          <tr><td>对手在正前方，正后方是棋盘边界</td><td>可斜跳到对手两侧；若两侧也越界或有挡板，则该方向不可移动。</td></tr>
+          <tr><td>对手在正前方，正后方格存在，但对手与该格之间有挡板</td><td>可斜跳，不能直线跳。</td></tr>
+          <tr><td>你与对手相邻，但两格之间有挡板</td><td>不能进入对手格，也不能跳跃；该方向无落点。</td></tr>
+          <tr><td>两块横向挡板端点相接，例如锚点分别为 (r, c) 与 (r, c+2)</td><td>不共享边缝，属于同向端头相接，合法放置。</td></tr>
+          <tr><td>横向挡板与竖向挡板在双方端头相接，形成 L 形</td><td>属于头部交接，合法放置。</td></tr>
+          <tr><td>一块挡板的端头落在另一块挡板的中段，形成 T 形</td><td>属于端头接中段，合法放置。</td></tr>
+          <tr><td>横向与竖向挡板在双方中点相交，形成十字形</td><td>属于中间交叉，禁止放置。</td></tr>
+          <tr><td>某块挡板会让机器人完全失去通路</td><td>禁止放置，即使该挡板离机器人很远。</td></tr>
+          <tr><td>某块挡板会让自己完全失去通路</td><td>禁止放置；不能以自封路线换取阻挡。</td></tr>
+          <tr><td>双方挡板都已用尽，只剩移动</td><td>对局继续，挡板模式不可用，直到有人抵达目标行。</td></tr>
+          <tr><td>跳跃落点正好位于目标行</td><td>立即获胜，不再要求额外一步。</td></tr>
+          <tr><td>玩家连续来回移动、双方都不推进</td><td>本期不自动判和；玩家可重新开始一局。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section" id="interface">
+      <div class="section-head">
+        <span class="section-num">07</span>
+        <h2>界面与交互</h2>
+        <span class="section-sub">Interface &amp; Interaction</span>
+      </div>
+      <p class="lede">界面只承担三件事：让棋盘成为唯一焦点、让当前可做的动作一目了然、让每一个被拒绝的操作都有原因。</p>
+
+      <h3>7.1 布局区域</h3>
+      <div class="ui-grid">
+        <div class="ui-card">
+          <h4>对局状态区</h4>
+          <p>当前回合、难度、双方挡板余量、重新开始与规则入口。桌面宽屏放在棋盘侧边，窄屏移到棋盘上方或下方，不遮挡棋盘。</p>
+        </div>
+        <div class="ui-card">
+          <h4>棋盘区</h4>
+          <p>13×13 棋盘位于视觉中心，90° 正俯视，无透视与倾斜。目标行以低饱和色带与文字标注。</p>
+        </div>
+        <div class="ui-card">
+          <h4>操作区</h4>
+          <p>三种模式：移动、横向挡板、竖向挡板。模式切换不消耗回合；放置挡板后回到移动模式。</p>
+        </div>
+        <div class="ui-card">
+          <h4>结算层与规则层</h4>
+          <p>结算覆盖棋盘但保留最终局面可见；规则面板在对局中打开时只读，不执行任何动作。</p>
+        </div>
+      </div>
+
+      <h3>7.2 视觉方向</h3>
+      <ul class="list">
+        <li><strong>视角：</strong>正交俯视，棋盘平面与屏幕平行；阴影仅用于区分层级，不制造 3D 透视。</li>
+        <li><strong>棋盘：</strong>暖木色底、深褐格线；目标行分别使用朱砂与深青的低饱和色带，避免与棋子混淆。</li>
+        <li><strong>棋子：</strong>你为琥珀色圆形，机器人为深青色方形，并分别标注“你”与“AI”，不以颜色作为唯一区分手段。</li>
+        <li><strong>挡板：</strong>深色实体条，横竖方向清晰；可放置槽位在预览时以高亮显示，非法槽位以朱砂色提示。</li>
+      </ul>
+
+      <h3>7.3 交互状态</h3>
+      <table class="table">
+        <thead><tr><th>状态</th><th>棋盘表现</th><th>可操作</th><th>提示</th></tr></thead>
+        <tbody>
+          <tr><td class="nowrap"><strong>准备</strong></td><td>显示初始棋子位置，棋盘被开始面板覆盖。</td><td>选难度、开始、查看规则。</td><td>“你执下方棋子，先行。”</td></tr>
+          <tr><td class="nowrap"><strong>你的回合 · 移动</strong></td><td>所有合法落点以圆点标出；跳跃落点使用环形标记。</td><td>点击高亮格；切换到挡板模式。</td><td>“点击高亮格移动。”</td></tr>
+          <tr><td class="nowrap"><strong>你的回合 · 挡板</strong></td><td>悬停位置显示半透明挡板预览，合法为金色，非法为朱砂色。</td><td>点击合法槽位；Esc 或“移动”返回。</td><td>非法预览直接显示拒绝原因。</td></tr>
+          <tr><td class="nowrap"><strong>机器人回合</strong></td><td>棋盘只读，棋子行动以与玩家一致的动画呈现。</td><td>无；规则入口暂时不可用。</td><td>“机器人思考中。”</td></tr>
+          <tr><td class="nowrap"><strong>结算</strong></td><td>最终局面保留可辨。</td><td>再来一局、调整难度。</td><td>显示胜者、抵达行与总手数。</td></tr>
+        </tbody>
+      </table>
+
+      <h3>7.4 反馈与可访问性</h3>
+      <ul class="list">
+        <li><strong>即时反馈：</strong>合法目标常驻高亮；非法点击立即给出原因并轻晃棋盘，但不改变任何状态。</li>
+        <li><strong>触屏：</strong>挡板采用“首次点击预览、再次点击确认”，避免误放；棋盘交互区域随棋盘等比缩放，不裁切。</li>
+        <li><strong>响应式：</strong>桌面端棋盘在游戏区域内完整显示；窄屏时状态区移动到棋盘下方，棋盘保持正方形且不产生横向滚动。</li>
+        <li><strong>非颜色依赖：</strong>双方棋子同时以形状与文字区分；挡板合法与非法预览同时使用颜色与提示文案。</li>
+        <li><strong>免打断：</strong>对局中不使用阻塞式弹窗；除“重新开始”需要二次确认外，所有操作在棋盘内直接完成。</li>
+      </ul>
+    </section>
+
+    <section class="section" id="questions">
+      <div class="section-head">
+        <span class="section-num">08</span>
+        <h2>待决问题</h2>
+        <span class="section-sub">Open Questions</span>
+      </div>
+      <p class="lede">以下问题不影响 P0 规则成立，但会影响范围或品牌呈现，需要在评审时确认。</p>
+      <table class="table open-table">
+        <thead><tr><th>问题</th><th>影响</th><th>当前处理</th></tr></thead>
+        <tbody>
+          <tr><td>正式名称与视觉主题</td><td>品牌、素材与页面标题。</td><td>暂用工作名“界行”，默认暖木棋盘与朱砂 / 深青棋子；正式名称 [TBD]。</td></tr>
+          <tr><td>手机竖屏与本地同屏双人是否进入 P0</td><td>布局复杂度与操作方式。</td><td>本期桌面优先；手机端仅保证棋盘可缩放可操作，专属布局列为 P1。</td></tr>
+          <tr><td>是否引入计时、回合上限或认输</td><td>对局终止方式与公平性。</td><td>本期不设计时、不设回合上限、不设平局；玩家可随时重新开始。是否需要认输 [TBD]。</td></tr>
+          <tr><td>三档难度的思考时间上限</td><td>对局节奏与机器人实现成本。</td><td>要求“不打断操作节奏”、页面始终可响应；具体上限 [TBD]。</td></tr>
+          <tr><td>音效、战绩与回放</td><td>范围与后续迭代。</td><td>本期不做；如加入，优先音效与本地战绩。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <footer class="doc-foot">
+      <span>界行 · PRD v0.9</span>
+      <span>13 × 13 · Human vs Machine</span>
+      <span>2026-10-23</span>
+    </footer>
+  </main>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  const N = 13;
+  const M = 37;
+  const CELL = 42;
+  const BOARD = 620;
+  const WALL_LIMIT = 10;
+  const GOAL = { human: 0, ai: 12 };
+  const DIFF_LABEL = { easy: '简单', hard: '困难', hell: '地狱' };
+
+  let S = null;
+  let selectedDiff = 'easy';
+  let mode = 'move';
+  let previewSlot = null;
+  let previewOk = true;
+  let previewReason = '';
+  let gameSeq = 0;
+  let aiTimer = null;
+  let toastTimer = null;
+  let toastHideTimer = null;
+  let renderedWalls = new Set();
+  let lastRenderId = 0;
+  let wallCache = { id: -1, turns: -1, side: '', value: false };
+
+  const $ = id => document.getElementById(id);
+  const svg = $('boardSvg');
+  const layers = {
+    goal: $('goalLayer'),
+    grid: $('gridLayer'),
+    mark: $('markLayer'),
+    wall: $('wallLayer'),
+    pawn: $('pawnLayer'),
+    preview: $('previewLayer')
+  };
+
+  const key = (r, c) => r + ',' + c;
+  const inBoard = (r, c) => r >= 0 && r < N && c >= 0 && c < N;
+  const cellX = c => M + c * CELL + CELL / 2;
+  const cellY = r => M + r * CELL + CELL / 2;
+  const sameSlot = (a, b) => !!a && !!b && a.kind === b.kind && a.r === b.r && a.c === b.c;
+
+  function createGame(difficulty){
+    return {
+      id: ++gameSeq,
+      difficulty: difficulty,
+      pawns: { human: { r: 12, c: 6 }, ai: { r: 0, c: 6 } },
+      h: new Set(),
+      v: new Set(),
+      inv: { human: WALL_LIMIT, ai: WALL_LIMIT },
+      turn: 'human',
+      started: false,
+      over: false,
+      winner: null,
+      turns: 0,
+      last: null,
+      aiWallCd: 0
+    };
+  }
+
+  /* ---------- movement rules ---------- */
+
+  function edgeBlocked(s, a, b){
+    if(a.r === b.r){
+      const bc = Math.min(a.c, b.c);
+      return s.v.has(key(a.r - 1, bc)) || s.v.has(key(a.r, bc));
+    }
+    if(a.c === b.c){
+      const br = Math.min(a.r, b.r);
+      return s.h.has(key(br, a.c - 1)) || s.h.has(key(br, a.c));
+    }
+    return true;
+  }
+
+  function legalMovesFor(side, s){
+    const pos = s.pawns[side];
+    const opp = s.pawns[side === 'human' ? 'ai' : 'human'];
+    const result = [];
+    const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+    for(const d of dirs){
+      const dr = d[0], dc = d[1];
+      const adj = { r: pos.r + dr, c: pos.c + dc };
+      if(!inBoard(adj.r, adj.c)) continue;
+      if(edgeBlocked(s, pos, adj)) continue;
+      if(adj.r === opp.r && adj.c === opp.c){
+        const beyond = { r: adj.r + dr, c: adj.c + dc };
+        if(inBoard(beyond.r, beyond.c) && !edgeBlocked(s, adj, beyond)){
+          result.push({ type: 'jump', to: beyond });
+          continue;
+        }
+        const perps = dr !== 0 ? [[0, -1], [0, 1]] : [[-1, 0], [1, 0]];
+        for(const p of perps){
+          const diag = { r: adj.r + p[0], c: adj.c + p[1] };
+          if(!inBoard(diag.r, diag.c)) continue;
+          if(diag.r === pos.r && diag.c === pos.c) continue;
+          if(edgeBlocked(s, adj, diag)) continue;
+          result.push({ type: 'jump', to: diag });
+        }
+      } else {
+        result.push({ type: 'move', to: adj });
+      }
+    }
+    return result;
+  }
+
+  function shortestDistance(pawn, goalRow, hSet, vSet){
+    if(pawn.r === goalRow) return 0;
+    const dist = new Int16Array(N * N).fill(-1);
+    const queue = new Int16Array(N * N);
+    let head = 0, tail = 0;
+    const start = pawn.r * N + pawn.c;
+    dist[start] = 0;
+    queue[tail++] = start;
+    while(head < tail){
+      const cur = queue[head++];
+      const r = Math.floor(cur / N);
+      const c = cur % N;
+      const nd = dist[cur] + 1;
+      if(r > 0 && !(hSet.has(key(r - 1, c - 1)) || hSet.has(key(r - 1, c)))){
+        const ni = (r - 1) * N + c;
+        if(dist[ni] === -1){
+          if(r - 1 === goalRow) return nd;
+          dist[ni] = nd;
+          queue[tail++] = ni;
+        }
+      }
+      if(r < N - 1 && !(hSet.has(key(r, c - 1)) || hSet.has(key(r, c)))){
+        const ni = (r + 1) * N + c;
+        if(dist[ni] === -1){
+          if(r + 1 === goalRow) return nd;
+          dist[ni] = nd;
+          queue[tail++] = ni;
+        }
+      }
+      if(c > 0 && !(vSet.has(key(r - 1, c - 1)) || vSet.has(key(r, c - 1)))){
+        const ni = r * N + (c - 1);
+        if(dist[ni] === -1){
+          dist[ni] = nd;
+          queue[tail++] = ni;
+        }
+      }
+      if(c < N - 1 && !(vSet.has(key(r - 1, c)) || vSet.has(key(r, c)))){
+        const ni = r * N + (c + 1);
+        if(dist[ni] === -1){
+          dist[ni] = nd;
+          queue[tail++] = ni;
+        }
+      }
+    }
+    return -1;
+  }
+
+  function shortestPathEdges(pawn, goalRow, hSet, vSet){
+    if(pawn.r === goalRow) return [];
+    const prev = new Int16Array(N * N).fill(-2);
+    const queue = new Int16Array(N * N);
+    let head = 0, tail = 0, goalIndex = -1;
+    const start = pawn.r * N + pawn.c;
+    prev[start] = -1;
+    queue[tail++] = start;
+    while(head < tail && goalIndex === -1){
+      const cur = queue[head++];
+      const r = Math.floor(cur / N);
+      const c = cur % N;
+      const next = [];
+      if(r > 0 && !(hSet.has(key(r - 1, c - 1)) || hSet.has(key(r - 1, c)))) next.push(cur - N);
+      if(r < N - 1 && !(hSet.has(key(r, c - 1)) || hSet.has(key(r, c)))) next.push(cur + N);
+      if(c > 0 && !(vSet.has(key(r - 1, c - 1)) || vSet.has(key(r, c - 1)))) next.push(cur - 1);
+      if(c < N - 1 && !(vSet.has(key(r - 1, c)) || vSet.has(key(r, c)))) next.push(cur + 1);
+      for(const ni of next){
+        if(prev[ni] !== -2) continue;
+        prev[ni] = cur;
+        if(Math.floor(ni / N) === goalRow){
+          goalIndex = ni;
+          break;
+        }
+        queue[tail++] = ni;
+      }
+    }
+    if(goalIndex === -1) return [];
+    const edges = [];
+    let cur = goalIndex;
+    while(prev[cur] !== -1){
+      const p = prev[cur];
+      edges.push({
+        a: { r: Math.floor(p / N), c: p % N },
+        b: { r: Math.floor(cur / N), c: cur % N }
+      });
+      cur = p;
+    }
+    return edges;
+  }
+
+  function relevantWallActions(s, side, pawn, goalRow){
+    const out = [];
+    if(s.inv[side] <= 0) return out;
+    const seen = new Set();
+    const add = (kind, r, c) => {
+      if(r < 0 || r >= N - 1 || c < 0 || c >= N - 1) return;
+      const id = kind + key(r, c);
+      if(seen.has(id)) return;
+      seen.add(id);
+      if(checkWall(s, kind, r, c, side).ok) out.push({ type: 'wall', kind: kind, r: r, c: c });
+    };
+    for(const edge of shortestPathEdges(pawn, goalRow, s.h, s.v)){
+      if(edge.a.c === edge.b.c){
+        const r = Math.min(edge.a.r, edge.b.r);
+        const c = edge.a.c;
+        add('h', r, c - 1);
+        add('h', r, c);
+      } else {
+        const r = edge.a.r;
+        const c = Math.min(edge.a.c, edge.b.c);
+        add('v', r - 1, c);
+        add('v', r, c);
+      }
+    }
+    return out;
+  }
+
+  function isCrossJoin(hRow, hCol, vRow, vCol){
+    const gx = vCol + 1;
+    const gy = hRow + 1;
+    const hEndpoint = gx === hCol || gx === hCol + 2;
+    const vEndpoint = gy === vRow || gy === vRow + 2;
+    return !hEndpoint && !vEndpoint;
+  }
+
+  function checkWall(s, kind, r, c, side){
+    if(s.inv[side] <= 0) return { ok: false, reason: '挡板已用尽，只能移动。' };
+    if(r < 0 || r >= N - 1 || c < 0 || c >= N - 1){
+      return { ok: false, reason: '挡板必须放在棋盘内部的两个格子之间。' };
+    }
+    if(kind === 'h'){
+      for(let cc = c - 1; cc <= c + 1; cc++){
+        if(cc < 0 || cc >= N - 1) continue;
+        if(s.h.has(key(r, cc))) return { ok: false, reason: '这块位置与已有挡板重叠。' };
+      }
+      for(let rr = r - 1; rr <= r + 1; rr++){
+        if(rr < 0 || rr >= N - 1) continue;
+        for(let cc = c - 1; cc <= c + 1; cc++){
+          if(cc < 0 || cc >= N - 1) continue;
+          if(s.v.has(key(rr, cc)) && isCrossJoin(r, c, rr, cc)){
+            return { ok: false, reason: '横竖挡板不能在双方的中段交叉，形成十字形。' };
+          }
+        }
+      }
+    } else {
+      for(let rr = r - 1; rr <= r + 1; rr++){
+        if(rr < 0 || rr >= N - 1) continue;
+        if(s.v.has(key(rr, c))) return { ok: false, reason: '这块位置与已有挡板重叠。' };
+      }
+      for(let rr = r - 1; rr <= r + 1; rr++){
+        if(rr < 0 || rr >= N - 1) continue;
+        for(let cc = c - 1; cc <= c + 1; cc++){
+          if(cc < 0 || cc >= N - 1) continue;
+          if(s.h.has(key(rr, cc)) && isCrossJoin(rr, cc, r, c)){
+            return { ok: false, reason: '横竖挡板不能在双方的中段交叉，形成十字形。' };
+          }
+        }
+      }
+    }
+    const h2 = kind === 'h' ? new Set(s.h) : s.h;
+    const v2 = kind === 'v' ? new Set(s.v) : s.v;
+    if(kind === 'h') h2.add(key(r, c));
+    else v2.add(key(r, c));
+    if(shortestDistance(s.pawns.human, GOAL.human, h2, v2) < 0){
+      return { ok: false, reason: '这块挡板会让你完全无路可走。' };
+    }
+    if(shortestDistance(s.pawns.ai, GOAL.ai, h2, v2) < 0){
+      return { ok: false, reason: '这块挡板会让机器人完全无路可走。' };
+    }
+    return { ok: true, reason: '' };
+  }
+
+  function hasAnyLegalWall(s, side){
+    if(s.inv[side] <= 0) return false;
+    for(const kind of ['h', 'v']){
+      for(let r = 0; r < N - 1; r++){
+        for(let c = 0; c < N - 1; c++){
+          if(checkWall(s, kind, r, c, side).ok) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  function hasAnyLegalWallCached(s, side){
+    if(!s || s.inv[side] <= 0) return false;
+    if(wallCache.id === s.id && wallCache.turns === s.turns && wallCache.side === side){
+      return wallCache.value;
+    }
+    const value = hasAnyLegalWall(s, side);
+    wallCache = { id: s.id, turns: s.turns, side: side, value: value };
+    return value;
+  }
+
+  /* ---------- simulation and AI ---------- */
+
+  function simulate(s, side, action){
+    const next = {
+      ...s,
+      pawns: { human: { ...s.pawns.human }, ai: { ...s.pawns.ai } },
+      inv: { human: s.inv.human, ai: s.inv.ai },
+      h: new Set(s.h),
+      v: new Set(s.v)
+    };
+    if(action.type === 'wall'){
+      if(action.kind === 'h') next.h.add(key(action.r, action.c));
+      else next.v.add(key(action.r, action.c));
+      next.inv[side] -= 1;
+    } else {
+      next.pawns[side] = { r: action.to.r, c: action.to.c };
+    }
+    if(side === 'ai'){
+      if(action.type === 'wall') next.aiWallCd = s.difficulty === 'hard' ? 3 : 2;
+      else next.aiWallCd = Math.max(0, (s.aiWallCd || 0) - 1);
+    }
+    return next;
+  }
+
+  function applyAction(s, side, action){
+    if(action.type === 'wall'){
+      if(action.kind === 'h') s.h.add(key(action.r, action.c));
+      else s.v.add(key(action.r, action.c));
+      s.inv[side] -= 1;
+    } else {
+      s.pawns[side] = { r: action.to.r, c: action.to.c };
+    }
+    if(side === 'ai'){
+      if(action.type === 'wall') s.aiWallCd = s.difficulty === 'hard' ? 3 : 2;
+      else s.aiWallCd = Math.max(0, (s.aiWallCd || 0) - 1);
+    }
+  }
+
+  function evaluate(s){
+    if(s.pawns.ai.r === GOAL.ai) return 100000;
+    if(s.pawns.human.r === GOAL.human) return -100000;
+    const dAi = shortestDistance(s.pawns.ai, GOAL.ai, s.h, s.v);
+    const dHuman = shortestDistance(s.pawns.human, GOAL.human, s.h, s.v);
+    if(dHuman < 0) return 90000;
+    if(dAi < 0) return -90000;
+    const race = dHuman - dAi;
+    let score = race * 100 + (10 - dAi) * 2 + (s.inv.ai - s.inv.human) * 1.5;
+    if(dHuman === 1) score -= 1500;
+    if(dAi === 1) score += 25;
+    return score;
+  }
+
+  function wallMetrics(s, action){
+    const dH0 = shortestDistance(s.pawns.human, GOAL.human, s.h, s.v);
+    const dA0 = shortestDistance(s.pawns.ai, GOAL.ai, s.h, s.v);
+    const next = simulate(s, 'ai', action);
+    const dH1 = shortestDistance(next.pawns.human, GOAL.human, next.h, next.v);
+    const dA1 = shortestDistance(next.pawns.ai, GOAL.ai, next.h, next.v);
+    return {
+      next: next,
+      dH0: dH0,
+      dA0: dA0,
+      dH1: dH1,
+      dA1: dA1,
+      block: dH1 - dH0,
+      self: dA1 - dA0
+    };
+  }
+
+  function scoreWallForAI(s, action, difficulty){
+    const m = wallMetrics(s, action);
+    const block = m.block;
+    const self = m.self;
+    if(block <= 0 || self > block){
+      return { ...m, action: action, value: -Infinity, bonus: -Infinity };
+    }
+    let bonus = 0;
+    if(m.dH0 === 1) bonus += 80;
+    else if(m.dH0 <= 3) bonus += 30;
+    if(m.dH0 >= m.dA0) bonus += 14;
+    if(block >= 2) bonus += 18;
+    if(self === 0) bonus += 4;
+    if(difficulty === 'hell') bonus += 6;
+    return { ...m, action: action, value: evaluate(m.next) + bonus, bonus: bonus };
+  }
+
+  function needsBlock(s){
+    return shortestDistance(s.pawns.human, GOAL.human, s.h, s.v) === 1;
+  }
+
+  function bestBlockingWall(s){
+    if(s.inv.ai <= 0) return null;
+    const scored = relevantWallActions(s, 'ai', s.pawns.human, GOAL.human)
+      .map(action => scoreWallForAI(s, action, s.difficulty))
+      .filter(x => x.block > 0);
+    scored.sort((a, b) => (b.block - a.block) || (a.self - b.self) || (b.value - a.value));
+    return scored.length ? scored[0].action : null;
+  }
+
+  function buildAICandidates(s, difficulty, allowWalls){
+    const moves = legalMovesFor('ai', s).map(m => {
+      const action = { type: m.type, to: m.to };
+      const next = simulate(s, 'ai', action);
+      return { action: action, next: next, value: evaluate(next), block: 0, self: 0 };
+    });
+    let walls = [];
+    if(allowWalls && s.inv.ai > 0){
+      walls = relevantWallActions(s, 'ai', s.pawns.human, GOAL.human)
+        .map(action => scoreWallForAI(s, action, difficulty))
+        .filter(x => Number.isFinite(x.value));
+    }
+    const candidates = moves.concat(walls);
+    candidates.sort((a, b) => b.value - a.value);
+    return candidates;
+  }
+
+  function rankRelevantActions(s, side, limit){
+    const moves = legalMovesFor(side, s).map(m => ({ type: m.type, to: m.to }));
+    const opponent = side === 'ai' ? 'human' : 'ai';
+    const opponentGoal = side === 'ai' ? GOAL.human : GOAL.ai;
+    const walls = relevantWallActions(s, side, s.pawns[opponent], opponentGoal);
+    const scored = moves.concat(walls).map(action => {
+      const next = simulate(s, side, action);
+      const value = side === 'ai' ? evaluate(next) : -evaluate(next);
+      return { action: action, next: next, value: value };
+    });
+    scored.sort((a, b) => b.value - a.value);
+    return typeof limit === 'number' ? scored.slice(0, limit) : scored;
+  }
+
+  function pickEasy(s){
+    const moves = legalMovesFor('ai', s);
+    if(moves.length === 0) return null;
+    const winMove = moves.find(m => m.to.r === GOAL.ai);
+    if(winMove) return winMove;
+
+    const dA = shortestDistance(s.pawns.ai, GOAL.ai, s.h, s.v);
+    const usefulWalls = () => {
+      if(s.inv.ai <= 0) return [];
+      return relevantWallActions(s, 'ai', s.pawns.human, GOAL.human)
+        .map(action => scoreWallForAI(s, action, 'easy'))
+        .filter(x => x.block > 0 && x.self <= 1 && Number.isFinite(x.value));
+    };
+
+    if(needsBlock(s) && Math.random() < 0.6){
+      const walls = usefulWalls();
+      if(walls.length) return walls[Math.floor(Math.random() * walls.length)].action;
+    }
+
+    if(s.aiWallCd === 0 && dA > 2 && Math.random() < 0.35){
+      const walls = usefulWalls();
+      if(walls.length && Math.random() < 0.85){
+        return walls[Math.floor(Math.random() * walls.length)].action;
+      }
+    }
+
+    const scored = moves.map(m => {
+      const next = simulate(s, 'ai', m);
+      return { move: m, d: shortestDistance(next.pawns.ai, GOAL.ai, next.h, next.v) };
+    });
+    scored.sort((a, b) => a.d - b.d);
+    if(Math.random() < 0.28) return moves[Math.floor(Math.random() * moves.length)];
+    const bestD = scored[0].d;
+    const best = scored.filter(x => x.d === bestD);
+    return best[Math.floor(Math.random() * best.length)].move;
+  }
+
+  function pickHard(s){
+    if(needsBlock(s)){
+      const block = bestBlockingWall(s);
+      if(block) return block;
+    }
+    const candidates = buildAICandidates(s, 'hard', s.aiWallCd === 0);
+    if(candidates.length) return candidates[0].action;
+    return legalMovesFor('ai', s)[0] || null;
+  }
+
+  function pickHell(s){
+    if(needsBlock(s)){
+      const block = bestBlockingWall(s);
+      if(block) return block;
+    }
+    const own = buildAICandidates(s, 'hell', s.aiWallCd === 0).slice(0, 14);
+    if(own.length === 0){
+      const moves = legalMovesFor('ai', s);
+      return moves[0] || null;
+    }
+    let best = own[0];
+    let bestScore = -Infinity;
+    for(const cand of own){
+      if(cand.action.type !== 'wall' && cand.action.to.r === GOAL.ai) return cand.action;
+      const replies = rankRelevantActions(cand.next, 'human', 16);
+      const worst = replies.length ? -replies[0].value : evaluate(cand.next);
+      let score = cand.value * 0.4 + worst * 0.6;
+      if(cand.action.type === 'wall') score += 12;
+      if(score > bestScore){
+        bestScore = score;
+        best = cand;
+      }
+    }
+    return best.action;
+  }
+
+  function pickAI(s){
+    const moves = legalMovesFor('ai', s);
+    const winMove = moves.find(m => m.to.r === GOAL.ai);
+    if(winMove) return winMove;
+    if(s.difficulty === 'easy') return pickEasy(s);
+    if(s.difficulty === 'hard') return pickHard(s);
+    return pickHell(s);
+  }
+
+  /* ---------- board rendering ---------- */
+
+  function buildStaticBoard(){
+    layers.goal.innerHTML = `
+      <rect x="${M}" y="${M}" width="${N * CELL}" height="${CELL}" fill="#a8412a" opacity=".12"/>
+      <rect x="${M}" y="${M + (N - 1) * CELL}" width="${N * CELL}" height="${CELL}" fill="#3f6270" opacity=".14"/>
+      <line x1="${M}" y1="${M + CELL}" x2="${M + N * CELL}" y2="${M + CELL}" stroke="#a8412a" stroke-opacity=".38" stroke-width="1.3"/>
+      <line x1="${M}" y1="${M + (N - 1) * CELL}" x2="${M + N * CELL}" y2="${M + (N - 1) * CELL}" stroke="#3f6270" stroke-opacity=".42" stroke-width="1.3"/>
+      <text class="goal-label human" x="${M + N * CELL / 2}" y="${M - 13}" text-anchor="middle">你的终点线 · 第 1 行</text>
+      <text class="goal-label ai" x="${M + N * CELL / 2}" y="${M + N * CELL + 20}" text-anchor="middle">机器人的终点线 · 第 13 行</text>
+    `;
+    let lines = '';
+    for(let i = 0; i <= N; i++){
+      const p = M + i * CELL;
+      lines += `<line class="gl" x1="${p}" y1="${M}" x2="${p}" y2="${M + N * CELL}"/>`;
+      lines += `<line class="gl" x1="${M}" y1="${p}" x2="${M + N * CELL}" y2="${p}"/>`;
+    }
+    lines += `<rect class="board-edge" x="${M}" y="${M}" width="${N * CELL}" height="${N * CELL}" rx="3"/>`;
+    layers.grid.innerHTML = lines;
+
+    layers.pawn.innerHTML = `
+      <g class="pawn human" id="pawnHuman" filter="url(#softShadow)">
+        <circle r="15" fill="url(#humanGrad)" stroke="#79541a" stroke-width="1.3"/>
+        <circle r="10.5" fill="none" stroke="#f4d79a" stroke-opacity=".45" stroke-width=".8"/>
+        <text>你</text>
+      </g>
+      <g class="pawn ai" id="pawnAi" filter="url(#softShadow)">
+        <rect x="-13" y="-13" width="26" height="26" rx="5" fill="url(#aiGrad)" stroke="#263b44" stroke-width="1.3"/>
+        <rect x="-9" y="-9" width="18" height="18" rx="3" fill="none" stroke="#bcd6df" stroke-opacity=".38" stroke-width=".8"/>
+        <text>AI</text>
+      </g>
+    `;
+  }
+
+  function wallH(r, c, cls, pad, thickness){
+    return `<rect class="${cls}" x="${M + c * CELL + pad}" y="${M + (r + 1) * CELL - thickness / 2}" width="${2 * CELL - pad * 2}" height="${thickness}" rx="${cls.indexOf('wall') === 0 ? 2 : thickness / 2}"/>`;
+  }
+
+  function wallV(r, c, cls, pad, thickness){
+    return `<rect class="${cls}" x="${M + (c + 1) * CELL - thickness / 2}" y="${M + r * CELL + pad}" width="${thickness}" height="${2 * CELL - pad * 2}" rx="${cls.indexOf('wall') === 0 ? 2 : thickness / 2}"/>`;
+  }
+
+  function resetWalls(){
+    layers.wall.innerHTML = '';
+    renderedWalls.clear();
+  }
+
+  function renderWalls(){
+    if(!S) return;
+    S.h.forEach(k => {
+      if(renderedWalls.has('h' + k)) return;
+      const parts = k.split(',');
+      layers.wall.insertAdjacentHTML('beforeend', wallH(Number(parts[0]), Number(parts[1]), 'wall enter', 0, 8));
+      renderedWalls.add('h' + k);
+    });
+    S.v.forEach(k => {
+      if(renderedWalls.has('v' + k)) return;
+      const parts = k.split(',');
+      layers.wall.insertAdjacentHTML('beforeend', wallV(Number(parts[0]), Number(parts[1]), 'wall enter', 0, 8));
+      renderedWalls.add('v' + k);
+    });
+  }
+
+  function updatePawns(){
+    if(!S) return;
+    const human = $('pawnHuman');
+    const ai = $('pawnAi');
+    if(!human || !ai) return;
+    human.setAttribute('transform', `translate(${cellX(S.pawns.human.c)},${cellY(S.pawns.human.r)})`);
+    ai.setAttribute('transform', `translate(${cellX(S.pawns.ai.c)},${cellY(S.pawns.ai.r)})`);
+  }
+
+  function renderMarks(){
+    let html = '';
+    if(S && S.last && S.last.type !== 'wall' && S.last.to){
+      const t = S.last.to;
+      html += `<rect class="last-mark" x="${M + t.c * CELL + 3}" y="${M + t.r * CELL + 3}" width="${CELL - 6}" height="${CELL - 6}" rx="6"/>`;
+    }
+    if(S && S.started && !S.over && S.turn === 'human' && mode === 'move'){
+      for(const move of legalMovesFor('human', S)){
+        const x = cellX(move.to.c);
+        const y = cellY(move.to.r);
+        if(move.type === 'jump') html += `<circle class="legal-ring" cx="${x}" cy="${y}" r="14"/>`;
+        html += `<circle class="legal-dot" cx="${x}" cy="${y}" r="6.5"/>`;
+      }
+    }
+    layers.mark.innerHTML = html;
+  }
+
+  function renderPreview(){
+    previewOk = true;
+    previewReason = '';
+    if(!S || !S.started || S.over || S.turn !== 'human' || mode === 'move' || !previewSlot){
+      layers.preview.innerHTML = '';
+      return;
+    }
+    const chk = checkWall(S, previewSlot.kind, previewSlot.r, previewSlot.c, 'human');
+    previewOk = chk.ok;
+    previewReason = chk.reason || '';
+    const cls = chk.ok ? 'preview-valid' : 'preview-invalid';
+    layers.preview.innerHTML = previewSlot.kind === 'h'
+      ? wallH(previewSlot.r, previewSlot.c, cls, 2, 10)
+      : wallV(previewSlot.r, previewSlot.c, cls, 2, 10);
+  }
+
+  function renderPips(id, remain){
+    const el = $(id);
+    if(el.children.length !== WALL_LIMIT){
+      let html = '';
+      for(let i = 0; i < WALL_LIMIT; i++) html += '<i></i>';
+      el.innerHTML = html;
+    }
+    Array.prototype.forEach.call(el.children, (pip, i) => {
+      pip.classList.toggle('used', i >= remain);
+    });
+  }
+
+  function defaultHint(){
+    if(!S) return '点击高亮格移动；选择“横板/竖板”后，点击格子之间的缝隙放置挡板。';
+    if(!S.started) return '选择难度后开始。你执下方棋子，先行。';
+    if(S.over) return '对局结束。可以再来一局或调整难度。';
+    if(S.turn === 'ai') return '机器人正在思考，棋盘暂时锁定。';
+    if(mode === 'move') return '点击高亮格移动；若对手挡在相邻格，可尝试跳跃。';
+    if(mode === 'h') return '横向挡板：点击上下行之间、覆盖相邻两列的缝隙。';
+    return '竖向挡板：点击左右列之间、覆盖相邻两行的缝隙。';
+  }
+
+  function setHint(text, isError){
+    const el = $('hint');
+    el.textContent = text;
+    el.classList.toggle('error', !!isError);
+  }
+
+  function renderSide(){
+    const started = !!(S && S.started);
+    const diff = S ? S.difficulty : selectedDiff;
+    $('diffBadge').textContent = DIFF_LABEL[diff];
+
+    const dot = $('turnDot');
+    dot.className = 'turn-dot';
+    let label = '等待开始';
+    let sub = '选择难度后开始';
+    if(started){
+      if(S.over){
+        dot.classList.add('over');
+        label = '对局结束';
+        sub = S.winner === 'human' ? '你率先抵达终点' : '机器人率先抵达终点';
+      } else if(S.turn === 'ai'){
+        dot.classList.add('ai');
+        label = '机器人思考中…';
+        sub = '棋盘已锁定';
+      } else {
+        label = '你的回合';
+        sub = mode === 'move' ? '移动一格，或切换到挡板' : '在格子缝隙上放置挡板';
+      }
+    }
+    $('turnLabel').textContent = label;
+    $('turnSub').textContent = sub;
+
+    renderPips('humanPips', S ? S.inv.human : WALL_LIMIT);
+    renderPips('aiPips', S ? S.inv.ai : WALL_LIMIT);
+    $('humanCount').textContent = S ? S.inv.human : WALL_LIMIT;
+    $('aiCount').textContent = S ? S.inv.ai : WALL_LIMIT;
+
+    const humanActive = started && !S.over && S.turn === 'human';
+    const anyWall = humanActive && S.inv.human > 0 && hasAnyLegalWallCached(S, 'human');
+    const tabs = $('modeTabs').querySelectorAll('button');
+    Array.prototype.forEach.call(tabs, btn => {
+      const m = btn.dataset.mode;
+      btn.classList.toggle('active', m === mode);
+      let disabled = !humanActive;
+      if(m !== 'move') disabled = disabled || !anyWall;
+      btn.disabled = disabled;
+    });
+    $('restartBtn').disabled = !humanActive;
+    $('rulesBtn').disabled = !S || (started && !S.over && S.turn === 'ai');
+  }
+
+  function render(){
+    if(!S) return;
+    if(lastRenderId !== S.id){
+      resetWalls();
+      lastRenderId = S.id;
+    }
+    renderSide();
+    renderWalls();
+    updatePawns();
+    renderMarks();
+    renderPreview();
+    if(previewSlot && mode !== 'move' && S.started && !S.over && S.turn === 'human'){
+      setHint(previewOk ? '合法位置：点击放置挡板。' : previewReason, !previewOk);
+    } else {
+      setHint(defaultHint());
+    }
+  }
+
+  /* ---------- notifications ---------- */
+
+  function flashError(message){
+    const holder = $('boardHolder');
+    holder.classList.remove('shake');
+    void holder.offsetWidth;
+    holder.classList.add('shake');
+    setTimeout(() => holder.classList.remove('shake'), 320);
+
+    setHint(message, true);
+    const toast = $('toast');
+    toast.textContent = message;
+    toast.classList.remove('hidden');
+    requestAnimationFrame(() => toast.classList.add('show'));
+    clearTimeout(toastTimer);
+    clearTimeout(toastHideTimer);
+    toastTimer = setTimeout(() => {
+      toast.classList.remove('show');
+      toastHideTimer = setTimeout(() => toast.classList.add('hidden'), 200);
+    }, 1700);
+  }
+
+  /* ---------- turn flow ---------- */
+
+  function startGame(difficulty){
+    const diff = difficulty || selectedDiff;
+    selectedDiff = diff;
+    clearTimeout(aiTimer);
+    closeModal();
+    S = createGame(diff);
+    S.started = true;
+    mode = 'move';
+    previewSlot = null;
+    updateDiffButtons();
+    $('protoOverlay').classList.add('hidden');
+    render();
+  }
+
+  function commitAction(action, side){
+    if(!S || S.over || S.turn !== side) return;
+    applyAction(S, side, action);
+    S.turns += 1;
+    S.last = {
+      type: action.type,
+      to: action.to || null,
+      kind: action.kind || null,
+      r: action.r,
+      c: action.c
+    };
+    previewSlot = null;
+    mode = 'move';
+    const goalRow = side === 'human' ? GOAL.human : GOAL.ai;
+    if(S.pawns[side].r === goalRow){
+      S.over = true;
+      S.winner = side;
+      S.turn = null;
+      render();
+      showResult(side);
+      return;
+    }
+    S.turn = side === 'human' ? 'ai' : 'human';
+    if(S.turn === 'ai') beginAITurn();
+    else render();
+  }
+
+  function beginAITurn(){
+    if(!S || S.over || S.turn !== 'ai') return;
+    const gameId = S.id;
+    render();
+    clearTimeout(aiTimer);
+    aiTimer = setTimeout(() => {
+      if(!S || S.id !== gameId || S.over || S.turn !== 'ai') return;
+      let action = null;
+      try{
+        action = pickAI(S);
+      }catch(err){
+        console.warn('AI fallback:', err);
+      }
+      if(!action) action = legalMovesFor('ai', S)[0] || null;
+      if(!action){
+        flashError('机器人没有合法行动。');
+        return;
+      }
+      commitAction(action, 'ai');
+    }, 480);
+  }
+
+  /* ---------- overlays ---------- */
+
+  function updateDiffButtons(){
+    const buttons = $('difficultyPicker').querySelectorAll('button');
+    Array.prototype.forEach.call(buttons, btn => {
+      btn.classList.toggle('active', btn.dataset.diff === selectedDiff);
+    });
+  }
+
+  function showStartOverlay(resetBoard){
+    clearTimeout(aiTimer);
+    if(resetBoard){
+      S = createGame(selectedDiff);
+      S.started = false;
+      mode = 'move';
+      previewSlot = null;
+      updateDiffButtons();
+    }
+    const overlay = $('protoOverlay');
+    overlay.classList.remove('hidden');
+    $('overlayKicker').textContent = '开始对局';
+    $('overlayTitle').textContent = '选择难度';
+    $('overlayDesc').textContent = '机器人执上方棋子后手应战。你执下方棋子，先行。';
+    $('difficultyPicker').hidden = false;
+    $('startBtn').hidden = false;
+    $('resultActions').hidden = true;
+    $('overlayFoot').textContent = '每回合二选一：移动一格，或放置一块两格长的挡板。';
+    render();
+  }
+
+  function showResult(winner){
+    const overlay = $('protoOverlay');
+    overlay.classList.remove('hidden');
+    $('overlayKicker').textContent = '对局结束';
+    $('overlayTitle').textContent = winner === 'human' ? '你赢了' : '机器人获胜';
+    $('overlayDesc').textContent = winner === 'human'
+      ? `你率先抵达第 1 行，本局共 ${S.turns} 手。`
+      : `机器人率先抵达第 13 行，本局共 ${S.turns} 手。`;
+    $('difficultyPicker').hidden = true;
+    $('startBtn').hidden = true;
+    $('resultActions').hidden = false;
+    $('overlayFoot').textContent = '再来一局保留当前难度；调整难度会回到准备阶段。';
+  }
+
+  function openModal(kicker, title, body, actions){
+    $('modalKicker').textContent = kicker;
+    $('modalTitle').textContent = title;
+    $('modalBody').innerHTML = body;
+    const box = $('modalActions');
+    box.innerHTML = '';
+    actions.forEach(item => {
+      const btn = document.createElement('button');
+      btn.className = item.primary ? 'btn-primary' : 'btn-ghost';
+      btn.textContent = item.label;
+      btn.addEventListener('click', item.onClick);
+      box.appendChild(btn);
+    });
+    $('modal').classList.remove('hidden');
+  }
+
+  function closeModal(){
+    $('modal').classList.add('hidden');
+  }
+
+  function openRules(){
+    if(S && S.started && !S.over && S.turn === 'ai') return;
+    openModal('RULES', '规则', `
+      <ul>
+        <li><strong>棋盘：</strong>13×13。你从下方中点 (7,13) 出发，目标是第 1 行；机器人从上方中点 (7,1) 出发，目标是第 13 行。</li>
+        <li><strong>先手：</strong>你先行。每回合二选一：上下左右移动一格（或按规则跳跃），或放置一块两格长的挡板。</li>
+        <li><strong>跳跃：</strong>对手挡在相邻格时可以跳过。正后方越界或被挡板隔开时，可斜跳到对手两侧的合法空格。</li>
+        <li><strong>挡板：</strong>每人 10 块；不得重叠；横竖挡板允许 L 形、T 形相接，禁止十字交叉；也不得让任一方完全无路可走。</li>
+        <li><strong>胜利：</strong>先抵达对方底线行的一方获胜，跳跃进入同样有效。</li>
+      </ul>
+      <p class="rule-line"><strong>完整定义：</strong>见文档第 06 章 R-01 至 R-08。</p>
+    `, [{ label: '知道了', primary: true, onClick: closeModal }]);
+  }
+
+  function openRestartConfirm(){
+    if(!S || !S.started || S.over || S.turn !== 'human') return;
+    openModal('RESTART', '重新开始？', '<p>当前对局的进度、挡板使用与回合数都会被清空，难度保持不变。</p>', [
+      { label: '继续对局', primary: false, onClick: closeModal },
+      { label: '确认重开', primary: true, onClick: () => {
+        const diff = S.difficulty;
+        closeModal();
+        startGame(diff);
+      } }
+    ]);
+  }
+
+  /* ---------- input ---------- */
+
+  function pointFromEvent(e){
+    const rect = svg.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left) / rect.width * BOARD,
+      y: (e.clientY - rect.top) / rect.height * BOARD
+    };
+  }
+
+  function cellAt(p){
+    if(!p) return null;
+    const c = Math.floor((p.x - M) / CELL);
+    const r = Math.floor((p.y - M) / CELL);
+    if(!inBoard(r, c)) return null;
+    return { r: r, c: c };
+  }
+
+  function slotAt(p, loose){
+    if(!p) return null;
+    const pad = CELL * (loose ? 0.5 : 0.38);
+    const edge = M + N * CELL;
+    if(p.x < M - pad || p.x > edge + pad || p.y < M - pad || p.y > edge + pad) return null;
+    if(mode === 'h'){
+      const boundary = Math.round((p.y - M) / CELL);
+      if(boundary < 1 || boundary > N - 1) return null;
+      if(Math.abs(p.y - (M + boundary * CELL)) > pad) return null;
+      let c = Math.round((p.x - M) / CELL) - 1;
+      c = Math.max(0, Math.min(N - 2, c));
+      return { kind: 'h', r: boundary - 1, c: c };
+    }
+    if(mode === 'v'){
+      const boundary = Math.round((p.x - M) / CELL);
+      if(boundary < 1 || boundary > N - 1) return null;
+      if(Math.abs(p.x - (M + boundary * CELL)) > pad) return null;
+      let r = Math.round((p.y - M) / CELL) - 1;
+      r = Math.max(0, Math.min(N - 2, r));
+      return { kind: 'v', r: r, c: boundary - 1 };
+    }
+    return null;
+  }
+
+  function moveRejectReason(cell){
+    const me = S.pawns.human;
+    const opp = S.pawns.ai;
+    if(cell.r === me.r && cell.c === me.c) return '这是你当前所在的位置。';
+    if(cell.r === opp.r && cell.c === opp.c){
+      if(Math.abs(cell.r - me.r) + Math.abs(cell.c - me.c) === 1 && !edgeBlocked(S, me, cell)){
+        return '对手挡住了去路，但该方向没有合法的跳跃落点。';
+      }
+      return '不能直接走到对手所在的格子。';
+    }
+    const dr = cell.r - me.r;
+    const dc = cell.c - me.c;
+    if(Math.abs(dr) + Math.abs(dc) !== 1) return '一次只能向上下左右移动一格，或按规则跳跃。';
+    if(edgeBlocked(S, me, cell)) return '这个方向被挡板封住了。';
+    return '这里不是当前可移动的落点。';
+  }
+
+  svg.addEventListener('pointermove', e => {
+    if(e.pointerType === 'touch') return;
+    if(!S || !S.started || S.over || S.turn !== 'human' || mode === 'move'){
+      if(previewSlot){
+        previewSlot = null;
+        renderPreview();
+        setHint(defaultHint());
+      }
+      return;
+    }
+    const slot = slotAt(pointFromEvent(e), false);
+    if(!sameSlot(slot, previewSlot)){
+      previewSlot = slot;
+      renderPreview();
+    }
+    if(previewSlot){
+      setHint(previewOk ? '合法位置：点击放置挡板。' : previewReason, !previewOk);
+    } else {
+      setHint(defaultHint());
+    }
+  });
+
+  svg.addEventListener('pointerleave', e => {
+    if(e.pointerType === 'touch') return;
+    if(previewSlot){
+      previewSlot = null;
+      renderPreview();
+      setHint(defaultHint());
+    }
+  });
+
+  svg.addEventListener('pointerdown', e => {
+    if(e.pointerType === 'mouse' && e.button !== 0) return;
+    if(!S || !S.started) return;
+    if(S.over) return;
+    if(S.turn !== 'human'){
+      if(S.turn === 'ai') setHint('机器人正在思考，请稍候。', true);
+      return;
+    }
+    const p = pointFromEvent(e);
+    if(mode === 'move'){
+      const cell = cellAt(p);
+      if(!cell) return;
+      const moves = legalMovesFor('human', S);
+      const hit = moves.find(m => m.to.r === cell.r && m.to.c === cell.c);
+      if(!hit){
+        flashError(moveRejectReason(cell));
+        return;
+      }
+      commitAction({ type: hit.type, to: hit.to }, 'human');
+      return;
+    }
+    const slot = slotAt(p, e.pointerType === 'touch');
+    if(!slot){
+      flashError('请在两个格子之间的缝隙上放置挡板。');
+      return;
+    }
+    if(e.pointerType === 'touch' && !sameSlot(slot, previewSlot)){
+      previewSlot = slot;
+      renderPreview();
+      setHint(previewOk ? '再次点击同一位置确认放置。' : previewReason, !previewOk);
+      return;
+    }
+    const chk = checkWall(S, slot.kind, slot.r, slot.c, 'human');
+    if(!chk.ok){
+      previewSlot = slot;
+      renderPreview();
+      flashError(chk.reason);
+      return;
+    }
+    commitAction({ type: 'wall', kind: slot.kind, r: slot.r, c: slot.c }, 'human');
+  });
+
+  $('modeTabs').addEventListener('click', e => {
+    const btn = e.target.closest('button[data-mode]');
+    if(!btn || btn.disabled || !S) return;
+    const nextMode = btn.dataset.mode;
+    if(nextMode !== 'move'){
+      if(S.inv.human <= 0){
+        flashError('挡板已用尽，只能移动。');
+        return;
+      }
+      if(!hasAnyLegalWallCached(S, 'human')){
+        flashError('当前没有合法的挡板位置。');
+        return;
+      }
+    }
+    mode = nextMode;
+    previewSlot = null;
+    render();
+  });
+
+  $('startBtn').addEventListener('click', () => startGame(selectedDiff));
+  $('againBtn').addEventListener('click', () => {
+    const diff = S ? S.difficulty : selectedDiff;
+    selectedDiff = diff;
+    updateDiffButtons();
+    startGame(diff);
+  });
+  $('changeDiffBtn').addEventListener('click', () => {
+    selectedDiff = S ? S.difficulty : selectedDiff;
+    updateDiffButtons();
+    showStartOverlay(true);
+  });
+  $('restartBtn').addEventListener('click', openRestartConfirm);
+  $('rulesBtn').addEventListener('click', openRules);
+
+  const diffButtons = $('difficultyPicker').querySelectorAll('button');
+  Array.prototype.forEach.call(diffButtons, btn => {
+    btn.addEventListener('click', () => {
+      selectedDiff = btn.dataset.diff;
+      updateDiffButtons();
+      if(S && !S.started){
+        S.difficulty = selectedDiff;
+        renderSide();
+      }
+    });
+  });
+
+  $('modal').addEventListener('pointerdown', e => {
+    if(e.target === $('modal')) closeModal();
+  });
+
+  document.addEventListener('keydown', e => {
+    if(e.key !== 'Escape') return;
+    if(!$('modal').classList.contains('hidden')){
+      closeModal();
+      return;
+    }
+    if(S && S.started && !S.over && S.turn === 'human' && mode !== 'move'){
+      mode = 'move';
+      previewSlot = null;
+      render();
+    }
+  });
+
+  /* ---------- init ---------- */
+
+  buildStaticBoard();
+  S = createGame(selectedDiff);
+  S.started = false;
+  updateDiffButtons();
+  render();
+  showStartOverlay(false);
+
+  /* ---------- document navigation ---------- */
+
+  const tocLinks = Array.prototype.slice.call(document.querySelectorAll('.toc nav a'));
+  function updateToc(){
+    const marker = window.scrollY + 150;
+    let current = null;
+    tocLinks.forEach(link => {
+      const section = document.querySelector(link.getAttribute('href'));
+      if(section && section.offsetTop <= marker) current = link;
+    });
+    tocLinks.forEach(link => link.classList.toggle('active', link === current));
+  }
+  window.addEventListener('scroll', updateToc, { passive: true });
+  updateToc();
+})();
+</script>
+</body>
+</html>
