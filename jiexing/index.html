@@ -664,6 +664,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
           <li>端头相接的 <strong>L 形</strong> 合法；端头撞在另一块中段的 <strong>T 形</strong> 合法。</li>
           <li>两块挡板都以中段相交的 <strong>十字形</strong> 不合法。</li>
           <li>任何放置都必须让双方都还能走到对方底线，否则不合法。</li>
+          <li>光“还有路”也不行：一块挡板不能把对手逼得多绕 5 步以上，那是变相封路。</li>
         </ul>
         <figure class="figure">
           <svg viewBox="0 0 372 144" aria-label="挡板连接规则示意图">
@@ -717,6 +718,8 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
   const CELL = 42;
   const WALL_LIMIT = 10;
   const GOAL = { human: 0, ai: 12 };
+  // 一块挡板最多允许让对手多绕这么多步，再多就算“封路”，不允许放置
+  const WALL_DETOUR_LIMIT = 4;
   const DIFF_LABEL = { easy: '简单', hard: '困难', hell: '地狱' };
 
   const key = (r, c) => r + ',' + c;
@@ -948,11 +951,20 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
     const v2 = kind === 'v' ? new Set(s.v) : s.v;
     if(kind === 'h') h2.add(key(r, c));
     else v2.add(key(r, c));
-    if(shortestDistance(s.pawns.human, GOAL.human, h2, v2) < 0){
+    const afterH = shortestDistance(s.pawns.human, GOAL.human, h2, v2);
+    if(afterH < 0){
       return { ok: false, reason: '这块挡板会把你自己困死。' };
     }
-    if(shortestDistance(s.pawns.ai, GOAL.ai, h2, v2) < 0){
+    const afterA = shortestDistance(s.pawns.ai, GOAL.ai, h2, v2);
+    if(afterA < 0){
       return { ok: false, reason: '这块挡板会把机器人困死，规则不允许封死通路。' };
+    }
+    // 有路还不行：把对手逼得多绕 5 步以上，等于变相封路，同样不允许
+    const opp = side === 'human' ? 'ai' : 'human';
+    const after = opp === 'human' ? afterH : afterA;
+    const straight = Math.abs(s.pawns[opp].r - GOAL[opp]);
+    if(after - straight > WALL_DETOUR_LIMIT){
+      return { ok: false, reason: '这块挡板会让对手多绕 ' + (after - straight) + ' 步，属于封路，不能放置。' };
     }
     return { ok: true, reason: '' };
   }
