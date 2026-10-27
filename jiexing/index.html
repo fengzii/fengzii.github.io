@@ -1037,7 +1037,9 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
     const trail = s.aiTrail || [];
     if(trail.length < 2) return null;
     const blocked = new Set();
-    for(const p of trail){
+    const from = Math.max(0, trail.length - 4);
+    for(let i = from; i < trail.length; i++){
+      const p = trail[i];
       if(p.r === s.pawns.ai.r && p.c === s.pawns.ai.c) continue;
       blocked.add(p.r * N + p.c);
     }
@@ -1049,6 +1051,26 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
     const trail = s.aiTrail || [];
     const prev = trail[trail.length - 2];
     return !!prev && move.to.r === prev.r && move.to.c === prev.c;
+  }
+
+  // 最近走过的格子按“多久以前”递减扣分：越近越贵，避免在几个格子之间绕圈
+  function recentVisitPenalty(s, to){
+    const trail = s.aiTrail || [];
+    let best = 0;
+    const maxBack = Math.min(trail.length - 1, 8);
+    for(let back = 1; back <= maxBack; back++){
+      const p = trail[trail.length - 1 - back];
+      if(p.r !== to.r || p.c !== to.c) continue;
+      const pen = back === 1 ? 60 : back === 2 ? 45 : back === 3 ? 35 : back === 4 ? 25 : back <= 6 ? 15 : 0;
+      if(pen > best) best = pen;
+    }
+    // 最近 6 步只在不超过 3 个格子里打转，判定为原地兜圈，额外重罚
+    if(trail.length >= 6){
+      const recent = new Set();
+      for(let i = trail.length - 6; i < trail.length; i++) recent.add(trail[i].r + ',' + trail[i].c);
+      if(recent.size <= 3 && recent.has(to.r + ',' + to.c)) best = Math.max(best, 55);
+    }
+    return best;
   }
 
   function wallMetrics(s, action){
@@ -1101,23 +1123,39 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
   function buildAICandidates(s, difficulty, allowWalls){
     const blocked = aiBlockedTrail(s);
     const legal = legalMovesFor('ai', s);
-    const forward = legal.filter(m => !isAiReversal(s, m));
-    const pool = forward.length ? forward : legal;
-    const moves = pool.map(m => {
+    const moves = legal.map(m => {
       const action = { type: m.type, to: m.to };
       const next = simulate(s, 'ai', action);
       const detour = blocked ? shortestDistance(next.pawns.ai, GOAL.ai, next.h, next.v, blocked) : -1;
-      return { action: action, next: next, value: evaluate(next), block: 0, self: 0, detour: detour < 0 ? 999 : detour };
+      const reversal = isAiReversal(s, m);
+      const d = shortestDistance(next.pawns.ai, GOAL.ai, next.h, next.v);
+      const revisit = recentVisitPenalty(s, m.to);
+      return {
+        action: action, next: next, block: 0, self: 0,
+        reversal: reversal, d: d < 0 ? 999 : d, revisit: revisit,
+        // 折返/绕圈按新旧程度扣分，但分值小于“走近一格”的 100，真正需要回退时仍会回退
+        value: evaluate(next) - revisit,
+        detour: detour < 0 ? 999 : detour
+      };
     });
+    // 折返只在“确实比所有不折返走法更接近终点”时保留：
+    // 等距或更差时直接弃用回头路，杜绝两格之间来回；真正的死胡同出口不会被误伤。
+    const forward = moves.filter(m => !m.reversal);
+    const reversals = moves.filter(m => m.reversal);
+    let usable = moves;
+    if(forward.length && reversals.length){
+      const forwardBest = Math.min(...forward.map(m => m.d));
+      if(reversals.some(m => m.d >= forwardBest)) usable = forward;
+    }
     let walls = [];
     if(allowWalls && s.inv.ai > 0){
       walls = relevantWallActions(s, 'ai', s.pawns.human, GOAL.human)
         .map(action => scoreWallForAI(s, action, difficulty))
-        .map(x => ({ ...x, detour: 0 }))
+        .map(x => ({ ...x, reversal: false, detour: 0 }))
         .filter(x => Number.isFinite(x.value));
     }
-    const candidates = moves.concat(walls);
-    candidates.sort((a, b) => (b.value - a.value) || (a.detour - b.detour));
+    const candidates = usable.concat(walls);
+    candidates.sort((a, b) => (b.value - a.value) || (a.reversal - b.reversal) || (a.detour - b.detour));
     return candidates;
   }
 
@@ -1162,21 +1200,36 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
     }
 
     const blocked = aiBlockedTrail(s);
-    const forward = moves.filter(m => !isAiReversal(s, m));
-    const pool = forward.length ? forward : moves;
-    const scored = pool.map(m => {
+    const scored = moves.map(m => {
       const next = simulate(s, 'ai', m);
       const d = shortestDistance(next.pawns.ai, GOAL.ai, next.h, next.v);
       const detour = blocked ? shortestDistance(next.pawns.ai, GOAL.ai, next.h, next.v, blocked) : -1;
-      return { move: m, d: d, detour: detour < 0 ? 999 : detour };
+      return { move: m, d: d < 0 ? 999 : d, reversal: isAiReversal(s, m), revisit: recentVisitPenalty(s, m.to), detour: detour < 0 ? 999 : detour };
     });
-    scored.sort((a, b) => (a.d - b.d) || (a.detour - b.detour));
-    if(Math.random() < 0.28) return pool[Math.floor(Math.random() * pool.length)];
-    const bestD = scored[0].d;
-    const best = scored.filter(x => x.d === bestD);
-    const minDetour = Math.min(...best.map(x => x.detour));
-    const fresh = best.filter(x => x.detour === minDetour);
-    return fresh[Math.floor(Math.random() * fresh.length)].move;
+    // 与困难/地狱一致：等距或更差时不再走回头路
+    const forwardMoves = scored.filter(x => !x.reversal);
+    const backMoves = scored.filter(x => x.reversal);
+    let poolAll = scored;
+    if(forwardMoves.length && backMoves.length){
+      const forwardBest = Math.min(...forwardMoves.map(x => x.d));
+      if(backMoves.some(x => x.d >= forwardBest)) poolAll = forwardMoves;
+    }
+    poolAll.sort((a, b) => (a.d - b.d) || (a.revisit - b.revisit) || (a.detour - b.detour));
+    if(Math.random() < 0.28){
+      // 简单难度的随机只用于同分取舍：先挑没走过的格子，避免来回摆
+      const bestD = poolAll[0].d;
+      const tier = poolAll.filter(x => x.d === bestD);
+      const minRev = Math.min(...tier.map(x => x.revisit));
+      const list = tier.filter(x => x.revisit === minRev);
+      return list[Math.floor(Math.random() * list.length)].move;
+    }
+    const bestD = poolAll[0].d;
+    const tier = poolAll.filter(x => x.d === bestD);
+    const minRev = Math.min(...tier.map(x => x.revisit));
+    const fresh = tier.filter(x => x.revisit === minRev);
+    const minDetour = Math.min(...fresh.map(x => x.detour));
+    const pool = fresh.filter(x => x.detour === minDetour);
+    return pool[Math.floor(Math.random() * pool.length)].move;
   }
 
   function pickHard(s){
@@ -1206,6 +1259,8 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
       const replies = rankRelevantActions(cand.next, 'human', 16);
       const worst = replies.length ? -replies[0].value : evaluate(cand.next);
       let score = cand.value * 0.4 + worst * 0.6;
+      // 二段搜索里再叠加一次绕圈扣分，避免“最坏回应”噪声把走子重新拉回旧格
+      score -= (cand.revisit || 0);
       if(cand.action.type === 'wall') score += 12;
       if(score > bestScore){
         bestScore = score;
