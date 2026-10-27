@@ -754,6 +754,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
       winner: null,
       turns: 0,
       last: null,
+      aiTrail: [],
       aiWallCd: 0,
       startTime: 0,
       endTime: 0
@@ -803,7 +804,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
     return result;
   }
 
-  function shortestDistance(pawn, goalRow, hSet, vSet){
+  function shortestDistance(pawn, goalRow, hSet, vSet, blocked){
     if(pawn.r === goalRow) return 0;
     const dist = new Int16Array(N * N).fill(-1);
     const queue = new Int16Array(N * N);
@@ -811,6 +812,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
     const start = pawn.r * N + pawn.c;
     dist[start] = 0;
     queue[tail++] = start;
+    const isBlocked = ni => !!blocked && blocked.has(ni);
     while(head < tail){
       const cur = queue[head++];
       const r = Math.floor(cur / N);
@@ -818,7 +820,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
       const nd = dist[cur] + 1;
       if(r > 0 && !(hSet.has(key(r - 1, c - 1)) || hSet.has(key(r - 1, c)))){
         const ni = (r - 1) * N + c;
-        if(dist[ni] === -1){
+        if(dist[ni] === -1 && !isBlocked(ni)){
           if(r - 1 === goalRow) return nd;
           dist[ni] = nd;
           queue[tail++] = ni;
@@ -826,7 +828,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
       }
       if(r < N - 1 && !(hSet.has(key(r, c - 1)) || hSet.has(key(r, c)))){
         const ni = (r + 1) * N + c;
-        if(dist[ni] === -1){
+        if(dist[ni] === -1 && !isBlocked(ni)){
           if(r + 1 === goalRow) return nd;
           dist[ni] = nd;
           queue[tail++] = ni;
@@ -834,14 +836,14 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
       }
       if(c > 0 && !(vSet.has(key(r - 1, c - 1)) || vSet.has(key(r, c - 1)))){
         const ni = r * N + (c - 1);
-        if(dist[ni] === -1){
+        if(dist[ni] === -1 && !isBlocked(ni)){
           dist[ni] = nd;
           queue[tail++] = ni;
         }
       }
       if(c < N - 1 && !(vSet.has(key(r - 1, c)) || vSet.has(key(r, c)))){
         const ni = r * N + (c + 1);
-        if(dist[ni] === -1){
+        if(dist[ni] === -1 && !isBlocked(ni)){
           dist[ni] = nd;
           queue[tail++] = ni;
         }
@@ -988,6 +990,9 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
       next.inv[side] -= 1;
     } else {
       next.pawns[side] = { r: action.to.r, c: action.to.c };
+      if(side === 'ai'){
+        next.aiTrail = (s.aiTrail || []).slice(-13).concat([{ r: action.to.r, c: action.to.c }]);
+      }
     }
     if(side === 'ai'){
       if(action.type === 'wall') next.aiWallCd = s.difficulty === 'hard' ? 3 : 2;
@@ -1003,6 +1008,9 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
       s.inv[side] -= 1;
     } else {
       s.pawns[side] = { r: action.to.r, c: action.to.c };
+      if(side === 'ai'){
+        s.aiTrail = (s.aiTrail || []).slice(-13).concat([{ r: action.to.r, c: action.to.c }]);
+      }
     }
     if(side === 'ai'){
       if(action.type === 'wall') s.aiWallCd = s.difficulty === 'hard' ? 3 : 2;
@@ -1022,6 +1030,25 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
     if(dHuman === 1) score -= 1500;
     if(dAi === 1) score += 25;
     return score;
+  }
+
+  // AI 近期走过的格子：用于在距离并列时避开回头路，防止左右来回摆动
+  function aiBlockedTrail(s){
+    const trail = s.aiTrail || [];
+    if(trail.length < 2) return null;
+    const blocked = new Set();
+    for(const p of trail){
+      if(p.r === s.pawns.ai.r && p.c === s.pawns.ai.c) continue;
+      blocked.add(p.r * N + p.c);
+    }
+    return blocked.size ? blocked : null;
+  }
+
+  // 是否等于上一步之前所在格（即走一步又立刻退回）
+  function isAiReversal(s, move){
+    const trail = s.aiTrail || [];
+    const prev = trail[trail.length - 2];
+    return !!prev && move.to.r === prev.r && move.to.c === prev.c;
   }
 
   function wallMetrics(s, action){
@@ -1072,19 +1099,25 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
   }
 
   function buildAICandidates(s, difficulty, allowWalls){
-    const moves = legalMovesFor('ai', s).map(m => {
+    const blocked = aiBlockedTrail(s);
+    const legal = legalMovesFor('ai', s);
+    const forward = legal.filter(m => !isAiReversal(s, m));
+    const pool = forward.length ? forward : legal;
+    const moves = pool.map(m => {
       const action = { type: m.type, to: m.to };
       const next = simulate(s, 'ai', action);
-      return { action: action, next: next, value: evaluate(next), block: 0, self: 0 };
+      const detour = blocked ? shortestDistance(next.pawns.ai, GOAL.ai, next.h, next.v, blocked) : -1;
+      return { action: action, next: next, value: evaluate(next), block: 0, self: 0, detour: detour < 0 ? 999 : detour };
     });
     let walls = [];
     if(allowWalls && s.inv.ai > 0){
       walls = relevantWallActions(s, 'ai', s.pawns.human, GOAL.human)
         .map(action => scoreWallForAI(s, action, difficulty))
+        .map(x => ({ ...x, detour: 0 }))
         .filter(x => Number.isFinite(x.value));
     }
     const candidates = moves.concat(walls);
-    candidates.sort((a, b) => b.value - a.value);
+    candidates.sort((a, b) => (b.value - a.value) || (a.detour - b.detour));
     return candidates;
   }
 
@@ -1128,15 +1161,22 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
       }
     }
 
-    const scored = moves.map(m => {
+    const blocked = aiBlockedTrail(s);
+    const forward = moves.filter(m => !isAiReversal(s, m));
+    const pool = forward.length ? forward : moves;
+    const scored = pool.map(m => {
       const next = simulate(s, 'ai', m);
-      return { move: m, d: shortestDistance(next.pawns.ai, GOAL.ai, next.h, next.v) };
+      const d = shortestDistance(next.pawns.ai, GOAL.ai, next.h, next.v);
+      const detour = blocked ? shortestDistance(next.pawns.ai, GOAL.ai, next.h, next.v, blocked) : -1;
+      return { move: m, d: d, detour: detour < 0 ? 999 : detour };
     });
-    scored.sort((a, b) => a.d - b.d);
-    if(Math.random() < 0.28) return moves[Math.floor(Math.random() * moves.length)];
+    scored.sort((a, b) => (a.d - b.d) || (a.detour - b.detour));
+    if(Math.random() < 0.28) return pool[Math.floor(Math.random() * pool.length)];
     const bestD = scored[0].d;
     const best = scored.filter(x => x.d === bestD);
-    return best[Math.floor(Math.random() * best.length)].move;
+    const minDetour = Math.min(...best.map(x => x.detour));
+    const fresh = best.filter(x => x.detour === minDetour);
+    return fresh[Math.floor(Math.random() * fresh.length)].move;
   }
 
   function pickHard(s){
