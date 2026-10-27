@@ -740,6 +740,14 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
   /* ============ 规则引擎 ============ */
   let gameSeq = 0;
 
+  // 每局随机一个“性格”，让同样的局面也会走出不同的选择
+  function rollAiStyle(){
+    const r = Math.random();
+    if(r < 0.34) return 'waller';
+    if(r < 0.67) return 'racer';
+    return 'balanced';
+  }
+
   function createGame(difficulty){
     return {
       id: ++gameSeq,
@@ -755,6 +763,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
       turns: 0,
       last: null,
       aiTrail: [],
+      aiStyle: rollAiStyle(),
       aiWallCd: 0,
       startTime: 0,
       endTime: 0
@@ -982,7 +991,8 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
       pawns: { human: { ...s.pawns.human }, ai: { ...s.pawns.ai } },
       inv: { human: s.inv.human, ai: s.inv.ai },
       h: new Set(s.h),
-      v: new Set(s.v)
+      v: new Set(s.v),
+      turns: (s.turns || 0) + 1
     };
     if(action.type === 'wall'){
       if(action.kind === 'h') next.h.add(key(action.r, action.c));
@@ -1104,6 +1114,9 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
     if(block >= 2) bonus += 18;
     if(self === 0) bonus += 4;
     if(difficulty === 'hell') bonus += 6;
+    // 性格让放板倾向有差异：爱放板的多加，抢路线的少放
+    if(s.aiStyle === 'waller') bonus += 9;
+    else if(s.aiStyle === 'racer') bonus -= 9;
     return { ...m, action: action, value: evaluate(m.next) + bonus, bonus: bonus };
   }
 
@@ -1151,12 +1164,23 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
     if(allowWalls && s.inv.ai > 0){
       walls = relevantWallActions(s, 'ai', s.pawns.human, GOAL.human)
         .map(action => scoreWallForAI(s, action, difficulty))
-        .map(x => ({ ...x, reversal: false, detour: 0 }))
+        // 给挡板加一点随机抖动，避免每局都放在同一个位置
+        .map(x => ({ ...x, reversal: false, detour: 0, value: x.value + (Math.random() - 0.5) * 12 }))
         .filter(x => Number.isFinite(x.value));
     }
     const candidates = usable.concat(walls);
     candidates.sort((a, b) => (b.value - a.value) || (a.reversal - b.reversal) || (a.detour - b.detour));
     return candidates;
+  }
+
+  // 在“几乎一样好”的候选里随机挑一个，让同样的局面也会走出不同选择
+  function pickNearBest(list, margin){
+    if(!list.length) return null;
+    const top = list[0].value;
+    let pool = list.filter(c => top - c.value <= margin);
+    const fresh = pool.filter(c => !(c.revisit > 0));
+    if(fresh.length) pool = fresh;
+    return pool[Math.floor(Math.random() * pool.length)];
   }
 
   function rankRelevantActions(s, side, limit){
@@ -1238,7 +1262,8 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
       if(block) return block;
     }
     const candidates = buildAICandidates(s, 'hard', s.aiWallCd === 0);
-    if(candidates.length) return candidates[0].action;
+    const chosen = pickNearBest(candidates, 20);
+    if(chosen) return chosen.action;
     return legalMovesFor('ai', s)[0] || null;
   }
 
@@ -1252,7 +1277,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
       const moves = legalMovesFor('ai', s);
       return moves[0] || null;
     }
-    let best = own[0];
+    const scored = [];
     let bestScore = -Infinity;
     for(const cand of own){
       if(cand.action.type !== 'wall' && cand.action.to.r === GOAL.ai) return cand.action;
@@ -1262,18 +1287,69 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
       // 二段搜索里再叠加一次绕圈扣分，避免“最坏回应”噪声把走子重新拉回旧格
       score -= (cand.revisit || 0);
       if(cand.action.type === 'wall') score += 12;
-      if(score > bestScore){
-        bestScore = score;
-        best = cand;
+      scored.push({ cand: cand, score: score });
+      if(score > bestScore) bestScore = score;
+    }
+    // 在分数接近的候选里随机，避免每局都做完全相同的选择
+    let pool = scored.filter(x => bestScore - x.score <= 25);
+    const fresh = pool.filter(x => !(x.cand.revisit > 0));
+    if(fresh.length) pool = fresh;
+    return pool[Math.floor(Math.random() * pool.length)].cand.action;
+  }
+
+  // 开局前两手给一点变化：有时先放板拦路、有时先横挪半步，而不是固定“前进 + 身后横板”
+  function pickOpening(s){
+    const trail = s.aiTrail || [];
+    // 只在前两手生效；连续放板不会写入 aiTrail，所以再用回合数兜住
+    if(!s.started || trail.length >= 2 || (s.turns || 0) > 3) return null;
+    const style = s.aiStyle || 'balanced';
+    // 只走过一步时，起点固定是 (0,6)：没有前移说明上一手是横走
+    const lastSideways = trail.length === 1 && s.pawns.ai.r === 0;
+    const wallChance = lastSideways ? 0 : style === 'waller' ? 0.34 : style === 'racer' ? 0.08 : 0.2;
+    if(s.inv.ai > 0 && Math.random() < wallChance){
+      const walls = relevantWallActions(s, 'ai', s.pawns.human, GOAL.human)
+        .map(a => scoreWallForAI(s, a, s.difficulty))
+        .filter(x => x.block > 0 && x.self <= 1 && Number.isFinite(x.value));
+      if(walls.length){
+        // 在较好的一批落点里随机：既有变化，又不会把板放在没用的地方
+        walls.sort((a, b) => b.value - a.value);
+        const pool = walls.slice(0, Math.max(3, Math.ceil(walls.length * 0.6)));
+        return pool[Math.floor(Math.random() * pool.length)].action;
       }
     }
-    return best.action;
+    const moves = legalMovesFor('ai', s);
+    if(!moves.length) return null;
+    const scored = moves.map(m => {
+      const next = simulate(s, 'ai', m);
+      const d = shortestDistance(next.pawns.ai, GOAL.ai, next.h, next.v);
+      return { m: m, d: d < 0 ? 999 : d, dr: m.to.r - s.pawns.ai.r, revisit: recentVisitPenalty(s, m.to) };
+    });
+    const bestD = Math.min(...scored.map(x => x.d));
+    const near = scored.filter(x => x.d <= bestD + 1);
+    const fresh = near.filter(x => x.revisit === 0);
+    const pool = fresh.length ? fresh : near;
+    if(!pool.length) return null;
+    // 加权随机：先向前，偶尔横挪；上一手已经横走时这一步几乎不再横走
+    const weights = pool.map(x => {
+      let w = x.dr > 0 ? 4 : x.dr === 0 ? 1 : 0.2;
+      if(lastSideways && x.dr === 0) w = 0.05;
+      if(x.revisit > 0) w *= 0.15;
+      return { m: x.m, w: w };
+    });
+    let total = 0;
+    for(const x of weights) total += x.w;
+    if(total <= 0) return pool[0].m;
+    let r = Math.random() * total;
+    for(const x of weights){ r -= x.w; if(r <= 0) return x.m; }
+    return weights[weights.length - 1].m;
   }
 
   function pickAI(s){
     const moves = legalMovesFor('ai', s);
     const winMove = moves.find(m => m.to.r === GOAL.ai);
     if(winMove) return winMove;
+    const opening = pickOpening(s);
+    if(opening) return opening;
     if(s.difficulty === 'easy') return pickEasy(s);
     if(s.difficulty === 'hard') return pickHard(s);
     return pickHell(s);
