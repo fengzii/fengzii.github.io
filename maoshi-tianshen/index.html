@@ -2,154 +2,84 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>冒失天神 · 旁观者引导式迷宫逃亡</title>
-<meta name="description" content="勇者只会埋头向前走。你是旁观的天使，用落石、木板、圣光与炸弹改写他的路。">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#10231F">
+<title>冒失天神</title>
+<meta name="description" content="勇者只会埋头向前走。你是旁观的天神，用落石、木板、圣光改写他的路。">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232E6B63'/%3E%3Ccircle cx='32' cy='27' r='11' fill='%23F5D79B'/%3E%3Cpath d='M10 32h44' stroke='%23F5D79B' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div class="grain" aria-hidden="true"></div>
 
-<header class="masthead">
-  <a class="brand" href="./" aria-label="冒失天神">
-    <span class="halo" aria-hidden="true">
-      <svg viewBox="0 0 64 64"><ellipse cx="32" cy="14" rx="15" ry="5" fill="none" stroke="currentColor" stroke-width="3.4"/></svg>
-    </span>
-    <span class="brand-txt">
-      <b>冒失<em>天神</em></b>
-      <i>THE ABSENT-MINDED DEITY</i>
-    </span>
-  </a>
-  <p class="masthead-note">勇者听不见你。他只听得见自己的直觉。</p>
-  <div class="masthead-meta">
-    <span>旁观者引导 · 迷宫逃亡</span>
-    <span>39 × 19 · 1 MAZE</span>
-  </div>
-</header>
-
-<main class="shell">
-  <aside class="side">
-    <section class="side-block chapter-block">
-      <div class="side-kicker"><span>章节</span><i></i></div>
-      <div class="levels" id="lvlBtns" role="tablist" aria-label="选择关卡"></div>
-      <p class="side-note">目前只有 1 个实测迷宫关：341 格的真迷宫，一条正确主路要走 272 步；五个岔口后面全是深坑，不封就必死。</p>
-    </section>
-
-    <section class="side-block">
-      <div class="side-kicker"><span>你要做的事</span><i></i></div>
-      <ol class="howto">
-        <li><b>看气泡</b><span>他头顶的箭头，就是他下一步想走的方向。</span></li>
-        <li><b>改地形</b><span>落石封错路、填坑、砸小怪；木板过水、熔岩、尖刺、泥沼；炸弹炸开内墙。</span></li>
-        <li><b>抢时间</b><span>大怪物沿他的足迹追来。犹豫太久，就会被抓住。</span></li>
-      </ol>
-    </section>
-
-    <section class="side-block keys-block">
-      <div class="side-kicker"><span>快捷键</span><i></i></div>
-      <div class="keys">
-        <span><kbd>1</kbd>落石</span>
-        <span><kbd>2</kbd>木板</span>
-        <span><kbd>3</kbd>圣光</span>
-        <span><kbd>4</kbd>炸弹</span>
-        <span><kbd>Space</kbd>暂停</span>
-        <span><kbd>R</kbd>重开</span>
-      </div>
-    </section>
-  </aside>
-
-  <section class="game-col">
-    <div class="game-frame">
-      <div class="frame-top">
-        <span class="frame-label">ANGEL'S VIEW · LIVE</span>
-        <span class="frame-chapter" id="lvlName">第 1 关</span>
-      </div>
-
-      <div class="hud">
-        <div class="hud-cell"><span class="k">用时</span><span class="v" id="timeVal">0.0s</span></div>
-
-        <button class="tool-btn on" id="toolRock" data-tool="rock" title="落石：封路、填坑、砸小怪（快捷键 1）">
-          <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l2-7 6-3 6 3 2 7-3 3H7z" fill="#B9B4A8" stroke="#20302D" stroke-width="1.6"/><path d="M8 11l4-2 2 2" fill="none" stroke="#E6E2D6" stroke-width="1.6" stroke-linecap="round"/></svg></span>
-          <span class="nm"><b>落石</b><span>KEY 1</span></span><span class="cnt" id="rockCnt">1</span>
-        </button>
-        <button class="tool-btn" id="toolPlank" data-tool="plank" title="木板：铺过水面、熔岩、尖刺与泥沼（快捷键 2）">
-          <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13l18-6" stroke="#B57B44" stroke-width="6" stroke-linecap="round"/><path d="M6 12l14-5M8 16l13-5" stroke="#7E5129" stroke-width="1.2"/></svg></span>
-          <span class="nm"><b>木板</b><span>KEY 2</span></span><span class="cnt" id="plankCnt">0</span>
-        </button>
-        <button class="tool-btn" id="toolLight" title="圣光：立刻让大怪物停顿 3 秒，点击即施放（快捷键 3）">
-          <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="#F0C578" stroke="#7A4F08" stroke-width="1.4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1" stroke="#7A4F08" stroke-width="1.6" stroke-linecap="round"/></svg></span>
-          <span class="nm"><b>圣光</b><span>KEY 3 · 施放</span></span><span class="cnt" id="lightCnt">0</span>
-        </button>
-        <button class="tool-btn" id="toolBomb" title="炸弹：炸开一格内墙，创造一条新路（快捷键 4）">
-          <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="15" r="6.2" fill="#4A4A48" stroke="#1B1B19" stroke-width="1.6"/><path d="M14 9l3-3M17 6l2-2M19 6l1.5 1.5" stroke="#B57B44" stroke-width="1.8" stroke-linecap="round"/><circle cx="19" cy="4" r="1.5" fill="#F2793C"/></svg></span>
-          <span class="nm"><b>炸弹</b><span>KEY 4</span></span><span class="cnt" id="bombCnt">0</span>
-        </button>
-
-        <div class="hud-spacer"></div>
-        <div class="gap-box">
-          <div class="gap-line"><span>追击距离</span><span id="gapTxt">-- 格</span></div>
-          <div class="gap-track"><div class="gap-fill" id="gapFill" style="width:0%"></div></div>
-        </div>
-        <button class="icon-btn" id="btnPause" title="暂停（Space）" aria-label="暂停">Ⅱ</button>
-        <button class="icon-btn" id="btnRestart" title="重开本关（R）" aria-label="重开本关">↻</button>
-      </div>
-
-      <div class="stage-wrap">
-        <canvas id="stage" width="2184" height="1064" aria-label="迷宫舞台"></canvas>
-        <div class="demo-overlay" id="ov">
-          <div class="panel">
-            <div class="eyebrow" id="ovEyebrow">LEVEL FAILED</div>
-            <h4 id="ovTitle">被抓住了</h4>
-            <p id="ovDesc">他绕进了死路，又原路折返，正好撞进怪物怀里。</p>
-            <div class="stats" id="ovStats"></div>
-            <div class="ov-actions">
-              <button class="btn" id="ovRetry">重试本关</button>
-              <button class="btn ghost" id="ovNext" hidden>下一关</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="hint" id="hint"><span class="dot"></span><span id="hintText">等待开始…</span></div>
+<div class="app">
+  <header class="topbar">
+    <div class="brand" aria-label="冒失天神">
+      <span class="halo" aria-hidden="true">
+        <svg viewBox="0 0 64 64"><ellipse cx="32" cy="14" rx="15" ry="5" fill="none" stroke="currentColor" stroke-width="3.4"/></svg>
+      </span>
+      <span class="brand-txt">
+        <b>冒失<em>天神</em></b>
+        <i id="lvlName">第 1 关</i>
+      </span>
     </div>
 
-    <div class="under">
-      <div class="under-card">
-        <span class="under-num">01</span>
-        <div><b>王冠不在你手里</b><p>你只能改变道路，不能命令勇者。所有优势都来自“看见”。</p></div>
-      </div>
-      <div class="under-card">
-        <span class="under-num">02</span>
-        <div><b>错一次，就复盘一次</b><p>单局约 4–5 分钟，重开零成本。输要输得明白。</p></div>
-      </div>
-      <div class="under-card">
-        <span class="under-num">03</span>
-        <div><b>越快越紧</b><p>勇者只比怪物快一点。绕路、停等、犹豫，都会被追上。</p></div>
-      </div>
+    <div class="reads">
+      <div class="read"><span>用时</span><b id="timeVal">0.0s</b></div>
+      <div class="read"><span>追击</span><b id="gapTxt">—</b></div>
     </div>
 
-    <section class="legend-strip">
-      <div class="side-kicker"><span>舞台图例</span><i></i></div>
-      <div class="legend">
-        <div class="legend-item"><span class="sw" style="background:#3E8C82"></span><span><b>勇者</b><span>自动行走，不听指令</span></span></div>
-        <div class="legend-item"><span class="sw" style="background:#6E5AA8"></span><span><b>大怪物</b><span>沿足迹追击，同格即失败</span></span></div>
-        <div class="legend-item"><span class="sw" style="background:#8D8A80"></span><span><b>落石</b><span>封路、填坑、砸小怪</span></span></div>
-        <div class="legend-item"><span class="sw" style="background:#B57B44"></span><span><b>木板</b><span>铺过水面、熔岩、尖刺、泥沼</span></span></div>
-        <div class="legend-item"><span class="sw" style="background:#141110"></span><span><b>坑</b><span>停在边缘，落石可填平</span></span></div>
-        <div class="legend-item"><span class="sw" style="background:#B9C2C6"></span><span><b>尖刺</b><span>木板盖住后才能过</span></span></div>
-        <div class="legend-item"><span class="sw" style="background:#E4674A"></span><span><b>巡逻小怪</b><span>来回巡逻，落石可砸死</span></span></div>
-        <div class="legend-item"><span class="sw" style="background:#F0C578"></span><span><b>圣光</b><span>让大怪物停顿 3 秒</span></span></div>
-        <div class="legend-item"><span class="sw" style="background:#6B6746"></span><span><b>泥沼</b><span>拖慢勇者，木板可铺平</span></span></div>
-        <div class="legend-item"><span class="sw" style="background:#4A4A48"></span><span><b>炸弹</b><span>炸开内墙，创造捷径</span></span></div>
-      </div>
-    </section>
-  </section>
-</main>
+    <div class="acts">
+      <button class="icon-btn" id="btnPause" title="暂停（空格）" aria-label="暂停">Ⅱ</button>
+      <button class="icon-btn" id="btnRestart" title="重开（R）" aria-label="重开本关">↻</button>
+    </div>
+  </header>
 
-<footer class="foot">
-  <span>冒失天神 · 可试玩原型</span>
-  <span>无外部依赖 · 单页 Canvas 2D</span>
-</footer>
+  <div class="gaptrack" aria-hidden="true"><i id="gapFill"></i></div>
+
+  <main class="board">
+    <canvas id="stage" aria-label="迷宫舞台"></canvas>
+    <canvas id="minimap" aria-hidden="true"></canvas>
+
+    <div class="hint" id="hint"><span class="dot"></span><span id="hintText">等待开始…</span></div>
+
+    <div class="demo-overlay" id="ov">
+      <div class="panel">
+        <div class="eyebrow" id="ovEyebrow">LEVEL FAILED</div>
+        <h4 id="ovTitle">被抓住了</h4>
+        <p id="ovDesc">他绕进了死路，又原路折返。</p>
+        <div class="stats" id="ovStats"></div>
+        <div class="ov-actions">
+          <button class="btn" id="ovRetry">重试本关</button>
+          <button class="btn ghost" id="ovNext" hidden>下一关</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="dock">
+    <button class="tool on" id="toolRock" data-tool="rock" title="落石：封路、填坑、砸小怪（1）">
+      <span class="tool-ico"><svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l2-7 6-3 6 3 2 7-3 3H7z" fill="#B9B4A8" stroke="#20302D" stroke-width="1.6"/><path d="M8 11l4-2 2 2" fill="none" stroke="#E6E2D6" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+      <span class="tool-nm">落石</span>
+      <span class="cnt" id="rockCnt">1</span>
+    </button>
+    <button class="tool" id="toolPlank" data-tool="plank" title="木板：铺过水面、熔岩、尖刺与泥沼（2）">
+      <span class="tool-ico"><svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13l18-6" stroke="#B57B44" stroke-width="6" stroke-linecap="round"/><path d="M6 12l14-5M8 16l13-5" stroke="#7E5129" stroke-width="1.2"/></svg></span>
+      <span class="tool-nm">木板</span>
+      <span class="cnt" id="plankCnt">0</span>
+    </button>
+    <button class="tool" id="toolLight" title="圣光：让大怪物停顿 3 秒（3）">
+      <span class="tool-ico"><svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="#F0C578" stroke="#7A4F08" stroke-width="1.4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1" stroke="#7A4F08" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+      <span class="tool-nm">圣光</span>
+      <span class="cnt" id="lightCnt">0</span>
+    </button>
+    <button class="tool" id="toolBomb" data-tool="bomb" title="炸弹：炸开一格内墙（4）">
+      <span class="tool-ico"><svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="15" r="6.2" fill="#4A4A48" stroke="#1B1B19" stroke-width="1.6"/><path d="M14 9l3-3M17 6l2-2M19 6l1.5 1.5" stroke="#B57B44" stroke-width="1.8" stroke-linecap="round"/><circle cx="19" cy="4" r="1.5" fill="#F2793C"/></svg></span>
+      <span class="tool-nm">炸弹</span>
+      <span class="cnt" id="bombCnt">0</span>
+    </button>
+  </footer>
+</div>
 
 <script src="js/game.js"></script>
 </body>

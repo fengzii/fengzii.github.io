@@ -35,8 +35,8 @@ const LEVELS=[
     mobs:[{x:9,y:11,axis:'x',min:7,max:17,speed:1400,dir:1}],
     rock:7, plank:5, light:2, bomb:0,
     monsterStep:990, headStart:9000, heroStep:950,
-    target:'真正的迷宫没有一条直路：每个岔口都像正路，每个死路尽头都藏着一处深坑。落石封住岔口的连接格，木板铺过水、尖刺与熔岩，顺手砸掉巡逻的小怪——他一步走错，大怪物就跟上来了。',
-    failHint:'先看气泡：他要拐进哪条岔路，就把那条岔路的连接格封死。'
+    target:'他头顶的箭头，就是他下一步的方向。',
+    failHint:'封住他要拐的那条岔路。'
   }
 ];
 
@@ -51,22 +51,56 @@ const OPP={up:'down',down:'up',left:'right',right:'left'};
 
 const canvas=document.getElementById('stage');
 const ctx=canvas.getContext('2d');
+const mini=document.getElementById('minimap');
+const mctx=mini.getContext('2d');
 const dpr=Math.min(window.devicePixelRatio||1,2);
-canvas.width=W*dpr; canvas.height=H*dpr;
-canvas.style.aspectRatio=W+'/'+H;
-ctx.setTransform(dpr,0,0,dpr,0,0);
-/* 39×19 的舞台很宽，这里按可用空间等比缩放，保证整座迷宫都在视口里。 */
-function fitStage(){
+const MM=3;
+mini.width=COLS*MM*dpr; mini.height=ROWS*MM*dpr;
+mini.style.width=(COLS*MM)+'px'; mini.style.height=(ROWS*MM)+'px';
+
+/* 39×19 的迷宫塞进竖屏会小到点不准，所以只显示勇者附近一段，镜头跟着他走。 */
+const view={w:0,h:0,scale:1};
+const cam={x:0,y:0,ready:false};
+let VIGNETTE=null;
+
+function measure(){
   const box=canvas.parentElement;
-  const availW=box.clientWidth||Math.max(320,window.innerWidth-380);
-  const availH=Math.max(260,window.innerHeight-canvas.getBoundingClientRect().top-130);
-  let w=availW, h=w*H/W;
-  if(h>availH){h=availH;w=h*W/H;}
-  canvas.style.width=Math.round(w)+'px';
-  canvas.style.height=Math.round(h)+'px';
+  const w=Math.max(1,box.clientWidth), h=Math.max(1,box.clientHeight);
+  view.w=w; view.h=h;
+  canvas.width=Math.round(w*dpr); canvas.height=Math.round(h*dpr);
+  view.scale=clamp(Math.min(w/10,h/14),30,54)/TILE;
+  makeVignette();
 }
-fitStage();
-window.addEventListener('resize',fitStage);
+function makeVignette(){
+  VIGNETTE=ctx.createRadialGradient(view.w/2,view.h*.44,Math.min(view.w,view.h)*.34,view.w/2,view.h*.52,Math.max(view.w,view.h)*.74);
+  VIGNETTE.addColorStop(0,'rgba(10,24,21,0)');
+  VIGNETTE.addColorStop(1,'rgba(10,24,21,.45)');
+}
+function clampCam(){
+  const vw=view.w/view.scale, vh=view.h/view.scale;
+  cam.x=vw>=W?(W-vw)/2:clamp(cam.x,0,W-vw);
+  cam.y=vh>=H?(H-vh)/2:clamp(cam.y,0,H-vh);
+}
+/* 镜头朝他前进的方向多探两格，岔口才来得及出现在画面里。 */
+function followCam(dt,snap){
+  const h=G.hero, dir=DIRS[h.prevDir||'right'];
+  const vw=view.w/view.scale, vh=view.h/view.scale;
+  const tx=(h.vx+dir[0]*2)*TILE+TILE/2-vw/2;
+  const ty=(h.vy+dir[1]*1.2)*TILE+TILE/2-vh/2;
+  if(snap||!cam.ready){cam.x=tx;cam.y=ty;cam.ready=true;}
+  else{
+    const k=1-Math.exp(-dt/240);
+    cam.x+=(tx-cam.x)*k; cam.y+=(ty-cam.y)*k;
+  }
+  clampCam();
+}
+function worldTransform(){
+  const s=view.scale;
+  let sx=0,sy=0;
+  if(G.shake>0.2){sx=(Math.random()-.5)*G.shake;sy=(Math.random()-.5)*G.shake;}
+  ctx.setTransform(dpr*s,0,0,dpr*s,(-cam.x*s+sx)*dpr,(-cam.y*s+sy)*dpr);
+}
+function screenTransform(){ctx.setTransform(dpr,0,0,dpr,0,0);}
 
 const el={
   lvlName:document.getElementById('lvlName'), time:document.getElementById('timeVal'),
@@ -79,7 +113,7 @@ const el={
   ov:document.getElementById('ov'), ovEyebrow:document.getElementById('ovEyebrow'),
   ovTitle:document.getElementById('ovTitle'), ovDesc:document.getElementById('ovDesc'),
   ovStats:document.getElementById('ovStats'), ovPrimary:document.getElementById('ovRetry'),
-  ovSecondary:document.getElementById('ovNext'), lvlBtns:document.getElementById('lvlBtns')
+  ovSecondary:document.getElementById('ovNext')
 };
 
 const G={
@@ -169,12 +203,13 @@ function startLevel(i){
   G.tool=G.items.rock>0?'rock':(G.items.plank>0?'plank':'rock');
   G.hover=null; G.shake=0; G.shakeCell=null; G.seen=new Set();
   G.flags={backtrack:0,waitMs:0};
-  G.hintBase=G.level.target; G.hintTimer=0;
+  G.hintBase='盯住他头顶的箭头'; G.hintTimer=0;
   G.bubble={kind:null,at:0};
   G.lastPlace=0;
-  el.lvlName.textContent=G.level.name;
-  document.querySelectorAll('.lvl-btn').forEach((b,idx)=>b.classList.toggle('on',idx===i));
-  updateTools(); updateHud(); say(G.level.target,false);
+  el.lvlName.textContent=G.level.name.split('·')[1].trim();
+  updateTools(); updateHud(); say(G.hintBase,false);
+  cam.ready=false; followCam(0,true);
+  buildMini();
   showOverlay({eyebrow:'LEVEL '+G.level.short,title:G.level.name.split('·')[1].trim(),desc:G.level.target,stats:'',primary:null,secondary:null});
   G.overlayOpen=true;
   G.overlayTimer=setTimeout(()=>{hideOverlay();G.overlayOpen=false;},READY_MS);
@@ -185,7 +220,7 @@ function beginPlay(){
   G.hero.nextAt=G.t+300;
   G.monster.nextAt=G.t+G.level.headStart;
   G.hintBase=G.level.target;
-  say('勇者出发了。盯住他的气泡。',false);
+  say('勇者出发了。',false);
 }
 
 function updateTools(){
@@ -212,7 +247,8 @@ function updateHud(){
   el.time.textContent=secs.toFixed(1)+'s';
   const ready=G.phase==='ready';
   const g=ready?0:gap();
-  el.gapTxt.textContent=ready?'— 格':g+' 格';
+  el.gapTxt.textContent=ready?'—':g+' 格';
+  el.gapTxt.classList.toggle('warn',!ready&&g<=2);
   const ratio=ready?0:Math.min(1,g/8);
   el.gapFill.style.width=(ratio*100)+'%';
   el.gapFill.classList.toggle('warn',!ready&&g<=4&&g>2);
@@ -388,7 +424,7 @@ function win(){
     showOverlay({
       eyebrow:'LEVEL CLEAR',
       title:'抵达终点',
-      desc:'勇者安全走进了光里。这座迷宫里的岔路本来就是骗人的——每个岔口他都想拐，五个死路尽头都埋着深坑。因为他信你的石头，一条也没走进去。',
+      desc:'勇者安全走进了光里。',
       stats:'<div><b>'+secs+'s</b>用时</div><div><b>'+G.items.rock+'</b>剩余落石</div><div><b>'+G.items.plank+'</b>剩余木板</div><div><b>'+G.items.light+'</b>剩余圣光</div>',
       primary:{label:'再走一次',fn:()=>{hideOverlay();startLevel(G.levelIndex);}},
       secondary:null
@@ -402,16 +438,16 @@ function caught(){
   hideOverlay(); G.overlayOpen=true;
   say(G.caughtBy==='mob'?'被小怪扑倒了！':'被抓住了！',true);
   setTimeout(()=>{
-    let title='被追上了',desc='他走得不够快，怪物贴得太紧。';
+    let title='被追上了',desc='怪物贴得太近了。';
     if(G.caughtBy==='mob'){
       title='小怪拦住了他';
-      desc='他一头撞进小怪的巡逻线，被扑倒在路中间。';
+      desc='他一头撞进了巡逻线。';
     }else if(G.flags.backtrack>0){
       title='走错路了';
-      desc='他绕进了死路又原路折返，正好把后背交给了怪物。';
+      desc='他绕进死路折返，被从背后追上。';
     }else if(G.flags.waitMs>=3000){
       title='耽搁太久';
-      desc='他在危险地形前等了太久，距离就是这样被吃掉的。';
+      desc='他在危险地形前停得太久。';
     }
     const secs=((G.t-G.startAt)/1000).toFixed(1);
     showOverlay({
@@ -471,6 +507,7 @@ function place(x,y){
     G.items.bomb--;
     G.dug.add(k); G.blasts.set(k,{x,y,at:t}); G.blastFx=t;
     G.shake=7; G.shakeCell=null;
+    buildMini();
     if(Math.abs(G.hero.x-x)+Math.abs(G.hero.y-y)<=1){G.hero.deadPending=null;G.hero.waitUntil=0;}
     say('轰！墙被炸开了一条新路。',false);
   }else if(G.tool==='rock'){
@@ -498,9 +535,9 @@ function place(x,y){
 
 function canvasCell(ev){
   const r=canvas.getBoundingClientRect();
-  const px=(ev.clientX-r.left)/r.width*W;
-  const py=(ev.clientY-r.top)/r.height*H;
-  return {x:Math.floor(px/TILE),y:Math.floor(py/TILE)};
+  const wx=(ev.clientX-r.left)/r.width*view.w/view.scale+cam.x;
+  const wy=(ev.clientY-r.top)/r.height*view.h/view.scale+cam.y;
+  return {x:Math.floor(wx/TILE),y:Math.floor(wy/TILE)};
 }
 
 function setTool(tool){
@@ -527,7 +564,7 @@ function togglePause(){
   if(G.paused){
     G.overlayOpen=true;
     showOverlay({
-      eyebrow:'PAUSED',title:'暂停',desc:'勇者、怪物和计时都停住了。',
+      eyebrow:'PAUSED',title:'暂停',desc:'箭头是他下一步的方向；石头封错路，木板过险地，圣光定住怪物。',
       stats:'',
       primary:{label:'继续游戏',fn:()=>{G.paused=false;G.overlayOpen=false;hideOverlay();updateHud();}},
       secondary:{label:'重开本关',fn:()=>{G.paused=false;G.overlayOpen=false;hideOverlay();startLevel(G.levelIndex);}}
@@ -537,20 +574,6 @@ function togglePause(){
   }
   updateHud();
 }
-
-LEVELS.forEach((lv,i)=>{
-  const b=document.createElement('button');
-  b.className='lvl-btn';
-  b.innerHTML='<i>'+lv.short+'</i><span>'+lv.name.replace(/^第\s*\d+\s*关\s*·\s*/,'')+'</span>';
-  b.title=lv.name;
-  b.onclick=()=>{
-    if(G.paused) return;
-    clearTimeout(G.overlayTimer);
-    hideOverlay(); G.overlayOpen=false;
-    startLevel(i);
-  };
-  el.lvlBtns.appendChild(b);
-});
 
 el.rockBtn.onclick=()=>setTool('rock');
 el.plankBtn.onclick=()=>setTool('plank');
@@ -567,8 +590,9 @@ canvas.addEventListener('pointermove',e=>{
   G.hover=canvasCell(e);
 });
 canvas.addEventListener('pointerleave',()=>{G.hover=null;});
-canvas.addEventListener('click',e=>{
-  if(G.overlayOpen) return;
+canvas.addEventListener('pointerdown',e=>{
+  if(e.pointerType==='touch') G.hover=null;
+  if(G.overlayOpen||G.paused) return;
   const c=canvasCell(e);
   place(c.x,c.y);
 });
@@ -855,10 +879,13 @@ function drawRocks(t){
   });
 }
 const FONT_BODY='"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif';
-let VIGNETTE=null;
 
 function drawTiles(t){
-  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
+  const x0=Math.max(0,Math.floor(cam.x/TILE)-1);
+  const x1=Math.min(COLS-1,Math.ceil((cam.x+view.w/view.scale)/TILE)+1);
+  const y0=Math.max(0,Math.floor(cam.y/TILE)-1);
+  const y1=Math.min(ROWS-1,Math.ceil((cam.y+view.h/view.scale)/TILE)+1);
+  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
     const px=x*TILE, py=y*TILE, ch=cellAt(x,y);
     if(ch==='#'){
       fillRR(px+1,py+1,TILE-2,TILE-2,8,C.wallEdge);
@@ -921,10 +948,12 @@ function drawBubble(t){
     if(b.kind===null||t-b.at>=BUBBLE_HOLD){b.kind=kind;b.at=t;}
     else kind=b.kind;
   }
-  const cx=clamp(h.vx*TILE+TILE/2,24,W-24);
+  const s=view.scale;
   const bob=Math.sin(t/520)*1.6;
-  const by=clamp(h.vy*TILE+TILE/2-58+bob,20,H-44);
+  const cx=clamp((h.vx*TILE+TILE/2)*s-cam.x*s,24,view.w-24);
+  const by=clamp((h.vy*TILE+TILE/2-58+bob)*s-cam.y*s,10,view.h-46);
   ctx.save();
+  screenTransform();
   ctx.beginPath();
   ctx.moveTo(cx-5,by+25); ctx.lineTo(cx,by+36); ctx.lineTo(cx+5,by+25);
   ctx.fillStyle='#FFFCF4'; ctx.fill();
@@ -1175,12 +1204,13 @@ function drawPlankGhost(cx,cy){
 }
 
 function drawTag(ax,ay,text){
+  const s=view.scale;
   ctx.save();
+  screenTransform();
   ctx.font='600 11px '+FONT_BODY;
   const w=ctx.measureText(text).width+14;
-  const x=clamp(ax-w/2,6,W-w-6);
-  let y=ay;
-  if(y+22>H-6) y=ay-TILE-26;
+  const x=clamp(ax*s-cam.x*s-w/2,6,view.w-w-6);
+  let y=clamp(ay*s-cam.y*s,6,view.h-27);
   fillRR(x,y,w,21,7,'rgba(16,32,28,.90)');
   ctx.fillStyle='#FFE9DC';
   ctx.textAlign='left';ctx.textBaseline='middle';
@@ -1235,25 +1265,72 @@ function drawWinFx(t){
 }
 
 function drawLostFx(){
-  const m=G.monster;
-  const cx=m.vx*TILE+TILE/2, cy=m.vy*TILE+TILE/2;
-  const g=ctx.createRadialGradient(cx,cy,10,cx,cy,190);
+  const m=G.monster, s=view.scale;
+  const cx=(m.vx*TILE+TILE/2)*s-cam.x*s, cy=(m.vy*TILE+TILE/2)*s-cam.y*s;
+  const g=ctx.createRadialGradient(cx,cy,10,cx,cy,Math.max(view.w,view.h)*.7);
   g.addColorStop(0,'rgba(196,61,43,.32)');
   g.addColorStop(.5,'rgba(196,61,43,.13)');
   g.addColorStop(1,'rgba(196,61,43,0)');
-  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  ctx.fillStyle=g;ctx.fillRect(0,0,view.w,view.h);
+}
+
+/* ---------- 小地图 ---------- */
+let miniStatic=null, miniAt=-1e9;
+function buildMini(){
+  const c=document.createElement('canvas');
+  c.width=COLS*MM*dpr; c.height=ROWS*MM*dpr;
+  const g=c.getContext('2d');
+  g.setTransform(dpr,0,0,dpr,0,0);
+  g.fillStyle='rgba(9,24,21,.78)'; g.fillRect(0,0,COLS*MM,ROWS*MM);
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
+    const ch=cellAt(x,y);
+    if(ch==='#') continue;
+    let col='rgba(243,232,207,.26)';
+    if(ch==='~') col='#7FC8D8';
+    else if(ch==='^') col='#F2793C';
+    else if(ch==='o') col='#4A4038';
+    else if(ch==='x') col='#B9C2C6';
+    else if(ch==='m') col='#8B8F5E';
+    else if(ch==='S') col='#BFE3E0';
+    else if(ch==='E') col='#F0C578';
+    g.fillStyle=col;
+    g.fillRect(x*MM,y*MM,MM,MM);
+  }
+  miniStatic=c;
+}
+function drawMini(){
+  const g=mctx;
+  g.setTransform(dpr,0,0,dpr,0,0);
+  g.clearRect(0,0,COLS*MM,ROWS*MM);
+  if(miniStatic) g.drawImage(miniStatic,0,0,COLS*MM,ROWS*MM);
+  g.fillStyle='rgba(240,197,120,.26)';
+  for(let i=0;i<G.trail.length;i++){
+    const p=G.trail[i];
+    g.fillRect(p.x*MM,p.y*MM,MM,MM);
+  }
+  if(G.exit){
+    g.fillStyle='rgba(255,246,196,'+(.55+.45*Math.sin(G.t/380))+')';
+    g.fillRect(G.exit.x*MM-1,G.exit.y*MM-1,MM+2,MM+2);
+  }
+  if(G.phase!=='ready'){
+    const m=monsterPos();
+    g.fillStyle='#A98AD8';
+    g.beginPath();g.arc(m.x*MM+MM/2,m.y*MM+MM/2,2.8,0,Math.PI*2);g.fill();
+  }
+  g.fillStyle='#4FBFA8';
+  g.beginPath();g.arc(G.hero.x*MM+MM/2,G.hero.y*MM+MM/2,3,0,Math.PI*2);g.fill();
+  g.strokeStyle='rgba(255,252,242,.85)';g.lineWidth=1;
+  g.beginPath();g.arc(G.hero.x*MM+MM/2,G.hero.y*MM+MM/2,3,0,Math.PI*2);g.stroke();
 }
 
 function draw(){
   const t=G.t;
-  ctx.setTransform(dpr,0,0,dpr,0,0);
-  ctx.clearRect(0,0,W,H);
+  screenTransform();
+  ctx.clearRect(0,0,view.w,view.h);
   ctx.fillStyle='#10231F';
-  ctx.fillRect(0,0,W,H);
-  ctx.save();
-  if(G.shake>0.2){
-    ctx.translate((Math.random()-.5)*G.shake,(Math.random()-.5)*G.shake);
-  }
+  ctx.fillRect(0,0,view.w,view.h);
+
+  worldTransform();
   drawTiles(t);
   drawTrail();
   drawHover();
@@ -1268,15 +1345,11 @@ function draw(){
   drawBubble(t);
   if(G.phase==='won') drawWinFx(t);
   drawShakeCell();
-  if(!VIGNETTE){
-    VIGNETTE=ctx.createRadialGradient(W/2,H*.45,Math.min(W,H)*.40,W/2,H*.52,Math.max(W,H)*.70);
-    VIGNETTE.addColorStop(0,'rgba(10,24,21,0)');
-    VIGNETTE.addColorStop(1,'rgba(10,24,21,.40)');
-  }
-  ctx.fillStyle=VIGNETTE;
-  ctx.fillRect(0,0,W,H);
+
+  screenTransform();
+  if(VIGNETTE){ctx.fillStyle=VIGNETTE;ctx.fillRect(0,0,view.w,view.h);}
   if(G.phase==='lost') drawLostFx();
-  ctx.restore();
+  if(t-miniAt>140){miniAt=t;drawMini();}
 }
 
 let prevTime=performance.now(), hudClock=0;
@@ -1296,6 +1369,7 @@ function frame(now){
     const mp=monsterPos();
     G.monster.vx=approach(G.monster.vx,mp.x,dt);
     G.monster.vy=approach(G.monster.vy,mp.y,dt);
+    followCam(dt,false);
   }
   if(G.shake>0) G.shake=Math.max(0,G.shake-dt*.012);
   draw();
@@ -1303,6 +1377,8 @@ function frame(now){
   requestAnimationFrame(frame);
 }
 
+measure();
 startLevel(0);
+new ResizeObserver(()=>{measure();followCam(0,true);}).observe(canvas.parentElement);
 requestAnimationFrame(frame);
 })();
