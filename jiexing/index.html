@@ -1286,8 +1286,10 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
       }
     }
     const own = buildAICandidates(s, 'hell', s.aiWallCd === 0)
-      // 放一块板就是让出一手：地狱难度只买“对手多绕 2 步以上、自己不绕”的板
-      .filter(c => c.action.type !== 'wall' || (c.block >= 2 && c.self === 0))
+      // 放一块板就是让出一手：只买“对手多绕 2 步以上、自己不绕”的板，
+      // 而且对手还远时先攒着，把板留给终局封堵（除非能一刀切出 4 步以上）
+      .filter(c => c.action.type !== 'wall' || (c.block >= 2 && c.self === 0 &&
+        (dH <= 4 || c.block >= 4)))
       .slice(0, 12);
     if(own.length === 0){
       const moves = legalMovesFor('ai', s);
