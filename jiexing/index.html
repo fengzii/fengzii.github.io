@@ -1040,6 +1040,8 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
     if(dAi < 0) return -90000;
     const race = dHuman - dAi;
     let score = race * 100 + (10 - dAi) * 2 + (s.inv.ai - s.inv.human) * 1.5;
+    // 人类先手：双方距离相同时实际是机器人落后，地狱难度要把这个先手差算进去
+    if(s.difficulty === 'hell' && dHuman <= dAi) score -= 45;
     if(dHuman === 1) score -= 1500;
     if(dAi === 1) score += 25;
     return score;
@@ -1271,11 +1273,22 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
   }
 
   function pickHell(s){
-    if(needsBlock(s)){
+    const dH = shortestDistance(s.pawns.human, GOAL.human, s.h, s.v);
+    if(dH === 1){
       const block = bestBlockingWall(s);
       if(block) return block;
+    } else if(dH === 2){
+      // 人类下一步就到终点：只有能把对手拖成 3 步以上的板才值得花掉这一手
+      const block = bestBlockingWall(s);
+      if(block){
+        const m = wallMetrics(s, block);
+        if(m.block >= 2 && m.self === 0) return block;
+      }
     }
-    const own = buildAICandidates(s, 'hell', s.aiWallCd === 0).slice(0, 14);
+    const own = buildAICandidates(s, 'hell', s.aiWallCd === 0)
+      // 放一块板就是让出一手：地狱难度只买“对手多绕 2 步以上、自己不绕”的板
+      .filter(c => c.action.type !== 'wall' || (c.block >= 2 && c.self === 0))
+      .slice(0, 12);
     if(own.length === 0){
       const moves = legalMovesFor('ai', s);
       return moves[0] || null;
@@ -1284,17 +1297,24 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
     let bestScore = -Infinity;
     for(const cand of own){
       if(cand.action.type !== 'wall' && cand.action.to.r === GOAL.ai) return cand.action;
-      const replies = rankRelevantActions(cand.next, 'human', 16);
+      // 二层：人类最强回应
+      const replies = rankRelevantActions(cand.next, 'human', 10);
       const worst = replies.length ? -replies[0].value : evaluate(cand.next);
-      let score = cand.value * 0.4 + worst * 0.6;
-      // 二段搜索里再叠加一次绕圈扣分，避免“最坏回应”噪声把走子重新拉回旧格
+      // 三层：人类这样走完之后，机器人再下一手能到什么位置
+      let follow = worst;
+      if(replies.length){
+        const nextAi = rankRelevantActions(replies[0].next, 'ai', 8);
+        follow = nextAi.length ? nextAi[0].value : evaluate(replies[0].next);
+      }
+      let score = cand.value * 0.35 + worst * 0.45 + follow * 0.2;
+      // 二段/三段搜索里再叠加一次绕圈扣分，避免“最坏回应”噪声把走子重新拉回旧格
       score -= (cand.revisit || 0);
       if(cand.action.type === 'wall') score += 12;
       scored.push({ cand: cand, score: score });
       if(score > bestScore) bestScore = score;
     }
-    // 在分数接近的候选里随机，避免每局都做完全相同的选择
-    let pool = scored.filter(x => bestScore - x.score <= 25);
+    // 只在分数几乎持平的候选里随机，避免每局都做完全相同的选择
+    let pool = scored.filter(x => bestScore - x.score <= 6);
     const fresh = pool.filter(x => !(x.cand.revisit > 0));
     if(fresh.length) pool = fresh;
     return pool[Math.floor(Math.random() * pool.length)].cand.action;
