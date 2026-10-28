@@ -191,6 +191,38 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
 .btn-quiet{background:transparent;border-color:transparent;color:var(--ink-2)}
 .btn-quiet:hover{background:rgba(32,26,20,.05);border-color:var(--line)}
 
+/* ---------- online ---------- */
+.online-panel{max-width:540px}
+.online-lede{font-size:13px;line-height:1.85;color:var(--ink-2);margin:16px 0 0}
+.field{display:block;margin-top:16px}
+.field .card-label{display:block;margin-bottom:6px}
+.field input{
+  width:100%;padding:10px 12px;
+  background:#fffdf6;border:1px solid var(--line-2);border-radius:6px;
+  font-family:var(--mono);font-size:13px;letter-spacing:.06em;color:var(--ink);
+  transition:border-color .18s,box-shadow .18s;
+}
+.field input::placeholder{color:var(--ink-3);letter-spacing:.02em}
+.field input:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 3px rgba(32,26,20,.07)}
+.online-row{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
+.online-note{font-size:10.5px;line-height:1.7;color:var(--ink-3)}
+.online-note code{font-family:var(--mono);font-size:10.5px;background:rgba(32,26,20,.06);border-radius:3px;padding:1px 5px}
+.online-divider{display:flex;align-items:center;gap:12px;margin:22px 0 0;font-family:var(--mono);font-size:9px;letter-spacing:.2em;color:var(--ink-3)}
+.online-divider::before,.online-divider::after{content:"";flex:1;height:1px;background:var(--line)}
+.room-wait{margin-top:20px;padding:18px 16px;border:1px dashed var(--line-2);border-radius:8px;background:rgba(255,255,255,.55);text-align:center}
+.room-wait .card-label{margin-bottom:8px}
+.room-code{font-family:var(--mono);font-size:32px;letter-spacing:.36em;line-height:1.2;color:var(--ink)}
+.room-hint{font-size:12px;color:var(--ink-3);margin:8px 0 0}
+.room-wait .online-row{justify-content:center}
+.online-msg{margin:16px 0 0;font-size:12px;line-height:1.7;color:var(--ink-3);min-height:2.6em;transition:color .2s}
+.online-msg.error{color:var(--red)}
+.online-msg.ok{color:var(--teal)}
+.room-line{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.room-code-sm{font-family:var(--mono);font-size:19px;letter-spacing:.2em}
+.room-status{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;color:var(--ink-3)}
+.room-status.live{color:var(--teal)}
+#onlineCard .btn{width:100%;margin-top:10px}
+
 /* ---------- svg board ---------- */
 .goal-label{font-family:var(--display);font-size:11.5px;letter-spacing:.18em;fill:#8d6c46}
 .goal-label.human{fill:#95301f}
@@ -513,6 +545,15 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
         <div class="turn-meta"><span id="turnMeta">—</span><span id="diffLabel">简单</span></div>
       </section>
 
+      <section class="card" id="onlineCard" hidden>
+        <div class="card-label">联机房间</div>
+        <div class="room-line">
+          <span class="room-code-sm" id="roomCode">----</span>
+          <span class="room-status" id="roomStatus">连接中</span>
+        </div>
+        <button class="btn btn-quiet" id="btnLeaveRoom">离开房间</button>
+      </section>
+
       <section class="card">
         <div class="card-label">挡板库存</div>
         <div class="inv-row">
@@ -521,7 +562,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
           <span class="inv-num" id="numHuman">10</span>
         </div>
         <div class="inv-row ai">
-          <span class="inv-name">机器人</span>
+          <span class="inv-name" id="invNameAi">机器人</span>
           <div class="pips" id="pipsAi"></div>
           <span class="inv-num" id="numAi">10</span>
         </div>
@@ -546,7 +587,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
         <p class="hint" id="hintText">点击高亮圆点移动，或切换到挡板。</p>
         <div class="legend">
           <span><i class="dot"></i>你</span>
-          <span><i class="tile"></i>机器人</span>
+          <span><i class="tile"></i><span id="legendAi">机器人</span></span>
           <span><i class="bar"></i>挡板</span>
         </div>
       </section>
@@ -562,7 +603,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
 
 <div class="overlay" id="startOverlay">
   <div class="panel start-panel">
-    <div class="kicker">13 × 13 · 人机对战</div>
+    <div class="kicker">13 × 13 · 人机 / 联机</div>
     <h1 class="brand-title">界行<span>·</span></h1>
     <p class="brand-tagline">十三路挡板棋</p>
     <p class="brand-lede">你执朱砂，自下方先行；机器人执靛青，居上方。每回合只做一件事：走一格，或落下一块两格长的挡板。先踏进对方底线行的一方获胜。</p>
@@ -591,6 +632,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
     </fieldset>
     <div class="panel-actions">
       <button class="btn btn-primary btn-start" id="btnStart">开始对局</button>
+      <button class="btn" id="btnOnline">联机对战</button>
       <button class="btn btn-quiet" id="btnOpenRules">先看规则</button>
     </div>
     <p class="start-note">方向键 / WASD 移动 · 1 2 3 切换操作 · R 重开</p>
@@ -605,13 +647,61 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
     <dl class="result-stats">
       <div><dt>手数</dt><dd id="statTurns">—</dd></div>
       <div><dt>你的挡板</dt><dd id="statHumanWalls">—</dd></div>
-      <div><dt>机器挡板</dt><dd id="statAiWalls">—</dd></div>
+      <div><dt id="statAiLabel">机器挡板</dt><dd id="statAiWalls">—</dd></div>
       <div><dt>用时</dt><dd id="statTime">—</dd></div>
     </dl>
     <div class="panel-actions">
       <button class="btn btn-primary btn-start" id="btnAgain">再来一局</button>
       <button class="btn" id="btnSwitch">换难度</button>
     </div>
+  </div>
+</div>
+
+<div class="overlay" id="onlineOverlay" hidden>
+  <div class="panel online-panel" role="dialog" aria-modal="true" aria-labelledby="onlineTitle">
+    <div class="rules-head">
+      <div>
+        <div class="kicker">联机对战</div>
+        <h2 id="onlineTitle">开一间房</h2>
+      </div>
+      <button class="icon-btn" id="btnCloseOnline" aria-label="关闭联机面板">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18"/>
+        </svg>
+      </button>
+    </div>
+    <p class="online-lede">一方创建房间，把四位房间码发给对手；对手填码加入即可开局。规则与人机模式完全一致，落子由服务端统一判定。谁在下面执朱砂，谁先走。</p>
+
+    <div id="onlineForm">
+      <label class="field">
+        <span class="card-label">服务端地址</span>
+        <input id="wsUrl" type="text" spellcheck="false" autocomplete="off">
+      </label>
+      <div class="online-row">
+        <button class="btn btn-primary" id="btnCreateRoom">创建房间</button>
+        <span class="online-note">本机启动：<code>cd jiexing/server &amp;&amp; go run .</code></span>
+      </div>
+      <div class="online-divider">或</div>
+      <label class="field">
+        <span class="card-label">房间码</span>
+        <input id="joinCode" type="text" maxlength="4" spellcheck="false" autocomplete="off" placeholder="输入四位房间码">
+      </label>
+      <div class="online-row">
+        <button class="btn" id="btnJoinRoom">加入房间</button>
+      </div>
+    </div>
+
+    <div class="room-wait" id="roomWait" hidden>
+      <div class="card-label">房间码 · 发给对手</div>
+      <div class="room-code" id="waitCode">----</div>
+      <p class="room-hint" id="waitHint">等待对手加入…</p>
+      <div class="online-row">
+        <button class="btn" id="btnCopyCode">复制房间码</button>
+        <button class="btn btn-quiet" id="btnCancelRoom">取消</button>
+      </div>
+    </div>
+
+    <p class="online-msg" id="onlineMsg"></p>
   </div>
 </div>
 
@@ -753,6 +843,8 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
     return {
       id: ++gameSeq,
       difficulty: difficulty,
+      online: false,
+      gid: 0,
       pawns: { human: { r: 12, c: 6 }, ai: { r: 0, c: 6 } },
       h: new Set(),
       v: new Set(),
@@ -1516,8 +1608,9 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
     layers.wall.innerHTML = '';
   }
 
-  function appendWall(kind, r, c){
-    layers.wall.insertAdjacentHTML('beforeend', wallShape(kind, r, c, 'wall enter', 0, 8, 2));
+  function appendWall(kind, r, c, animate){
+    const cls = animate === false ? 'wall' : 'wall enter';
+    layers.wall.insertAdjacentHTML('beforeend', wallShape(kind, r, c, cls, 0, 8, 2));
   }
 
   function updatePawns(){
@@ -1606,6 +1699,18 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
   function announce(text){ liveEl.textContent = text; }
 
   function defaultHint(){
+    if(!game) return '选择难度，开始对局。';
+    if(game.online){
+      if(!game.started) return '等待对手加入房间。';
+      if(game.over) return '对局结束，可以请求再来一局。';
+      const oppOffline = net && net.present && net.you && net.present[net.you === 'a' ? 'b' : 'a'] === false;
+      if(oppOffline) return '对手暂时掉线，60 秒内可以重连。';
+      if(!net || !net.connected) return '连接中断，正在重连…';
+      if(game.turn === 'ai') return '等待对手落子…';
+      if(mode === 'move') return '点击高亮圆点移动；对手贴身时可以跳过它。';
+      if(mode === 'h') return '横向挡板：点击两条横线的交叉点。';
+      return '竖向挡板：点击两条竖线的交叉点。';
+    }
     if(!game || !game.started) return '选择难度，开始对局。';
     if(game.over) return '对局结束，可以再来一局或换难度。';
     if(game.turn === 'ai') return '机器人正在思考，棋盘暂时锁定。';
@@ -1627,13 +1732,16 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
 
   function renderRail(){
     const started = !!(game && game.started);
-    diffLabel.textContent = DIFF_LABEL[game ? game.difficulty : selectedDiff];
+    const online = !!(game && game.online);
+    diffLabel.textContent = !game ? DIFF_LABEL[selectedDiff] : (online ? '联机' : DIFF_LABEL[game.difficulty]);
+    $('invNameAi').textContent = online ? '对手' : '机器人';
+    $('legendAi').textContent = online ? '对手' : '机器人';
 
     turnCard.classList.toggle('ai', started && !game.over && game.turn === 'ai');
     turnCard.classList.toggle('over', started && game.over);
     if(!started) turnLabel.textContent = '准备开始';
     else if(game.over) turnLabel.textContent = '对局结束';
-    else if(game.turn === 'ai') turnLabel.textContent = '机器人思考中';
+    else if(game.turn === 'ai') turnLabel.textContent = online ? '等待对手' : '机器人思考中';
     else turnLabel.textContent = '你的回合';
 
     turnMeta.textContent = game && started ? ('第 ' + (game.over ? game.turns : game.turns + 1) + ' 手') : '—';
@@ -1645,9 +1753,16 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
     hintEl.classList.remove('error');
     hintEl.textContent = defaultHint();
 
-    btnRestart.disabled = !started || game.over;
-    btnRestart.textContent = restartArmed ? '确认重开？' : '重新开始';
-    btnRestart.classList.toggle('warn', restartArmed);
+    if(online){
+      const asked = !!(net && net.rematch && net.rematch[net.you]);
+      btnRestart.disabled = !started || !game.over || asked;
+      btnRestart.textContent = asked ? '已请求再来一局' : '再来一局';
+      btnRestart.classList.remove('warn');
+    } else {
+      btnRestart.disabled = !started || game.over;
+      btnRestart.textContent = restartArmed ? '确认重开？' : '重新开始';
+      btnRestart.classList.toggle('warn', restartArmed);
+    }
   }
 
   function renderModes(){
@@ -1710,7 +1825,9 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
 
   /* ============ 落子流程 ============ */
   function canHumanAct(){
-    return game && game.started && !game.over && game.turn === 'human';
+    if(!game || !game.started || game.over || game.turn !== 'human') return false;
+    if(game.online && !(net && net.connected)) return false;
+    return true;
   }
 
   function commit(side, action){
@@ -1738,13 +1855,15 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
     renderPreview();
     renderRail();
     playSound(winner === 'human' ? 'win' : 'lose');
-    announce(winner === 'human' ? '你赢了' : '机器人赢了');
+    announce(winner === 'human' ? '你赢了' : (game.online ? '对手赢了' : '机器人赢了'));
     setTimeout(showResult, 460);
     return true;
   }
 
   function checkWin(){
     if(!game) return false;
+    // 联机时的胜负完全以服务端状态为准，本地不做乐观判定。
+    if(game.online) return false;
     if(game.pawns.human.r === GOAL.human) return finish('human');
     if(game.pawns.ai.r === GOAL.ai) return finish('ai');
     return false;
@@ -1759,12 +1878,13 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
     hoverCell = null;
     renderModes();
     renderAll();
-    scheduleAI();
+    if(!game.online) scheduleAI();
   }
 
   function humanMove(move){
     if(!canHumanAct() || mode !== 'move') return;
     commit('human', { type: move.type, to: { r: move.to.r, c: move.to.c } });
+    if(game.online) sendAction({ type: move.type, to: toServerPos(move.to) });
     afterHuman();
   }
 
@@ -1778,6 +1898,10 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
       return;
     }
     commit('human', { type: 'wall', kind: kind, r: r, c: c });
+    if(game.online){
+      const w = toServerWall(r, c);
+      sendAction({ type: 'wall', kind: kind, r: w.r, c: w.c });
+    }
     mode = 'move';
     pendingSlot = null;
     preview = null;
@@ -1798,6 +1922,387 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
       game.turn = 'human';
       renderAll();
     }, delay);
+  }
+
+  /* ============ 联机（服务端权威） ============ */
+  // 服务端席位 a 在下方执朱砂先行，席位 b 在上方。客户端始终把“自己”画在下方：
+  // 拿到 b 席时，把服务端的坐标整体旋转 180°，规则与人机模式完全共用。
+  const onlineOverlay = $('onlineOverlay');
+  const onlineForm = $('onlineForm');
+  const roomWait = $('roomWait');
+  const onlineMsgEl = $('onlineMsg');
+  const onlineCard = $('onlineCard');
+
+  let ws = null;
+  let net = null;
+
+  function rotPos(p){ return { r: N - 1 - p.r, c: N - 1 - p.c }; }
+  function isFlipped(){ return !!(game && game.online && net && net.you === 'b'); }
+  function toServerPos(p){ return isFlipped() ? rotPos(p) : { r: p.r, c: p.c }; }
+  function toServerWall(r, c){ return isFlipped() ? { r: N - 2 - r, c: N - 2 - c } : { r: r, c: c }; }
+  function serverWallKey(idx, flip){
+    const r = Math.floor(idx / N), c = idx % N;
+    return flip ? key(N - 2 - r, N - 2 - c) : key(r, c);
+  }
+  function localLastFromServer(a, flip){
+    if(!a) return null;
+    if(a.type === 'wall'){
+      return {
+        type: 'wall',
+        kind: a.kind,
+        r: flip ? N - 2 - a.r : a.r,
+        c: flip ? N - 2 - a.c : a.c
+      };
+    }
+    return { type: a.type, to: flip ? rotPos(a.to) : { r: a.to.r, c: a.to.c } };
+  }
+
+  function gameFromState(st){
+    const flip = st.you === 'b';
+    const me = st.you, opp = me === 'a' ? 'b' : 'a';
+    const conv = p => flip ? rotPos(p) : { r: p.r, c: p.c };
+    const g = createGame('online');
+    g.online = true;
+    g.gid = st.gid;
+    g.pawns = { human: conv(st.pawns[me]), ai: conv(st.pawns[opp]) };
+    g.h = new Set((st.h || []).map(k => serverWallKey(k, flip)));
+    g.v = new Set((st.v || []).map(k => serverWallKey(k, flip)));
+    g.inv = { human: st.inv[me], ai: st.inv[opp] };
+    g.turn = st.turn === me ? 'human' : 'ai';
+    g.started = !!st.started;
+    g.over = !!st.over;
+    g.winner = st.over ? (st.winner === me ? 'human' : 'ai') : null;
+    g.turns = st.turns;
+    g.last = localLastFromServer(st.last, flip);
+    return g;
+  }
+
+  function renderWallsFromGame(g, animateLast){
+    resetWalls();
+    const lastKey = animateLast && animateLast.type === 'wall'
+      ? animateLast.kind + animateLast.r + ',' + animateLast.c
+      : null;
+    g.h.forEach(k => {
+      if(lastKey && 'h' + k === lastKey) return;
+      const p = k.split(',');
+      appendWall('h', +p[0], +p[1], false);
+    });
+    g.v.forEach(k => {
+      if(lastKey && 'v' + k === lastKey) return;
+      const p = k.split(',');
+      appendWall('v', +p[0], +p[1], false);
+    });
+    if(lastKey) appendWall(animateLast.kind, animateLast.r, animateLast.c, true);
+  }
+
+  function applyServerState(st){
+    if(!net) return;
+    net.present = st.present || {};
+    net.rematch = st.rematch || {};
+    if(st.code) net.code = st.code;
+    net.you = st.you || net.you;
+    const prev = game && game.online ? game : null;
+    const next = gameFromState(st);
+    const isNew = !prev || prev.gid !== next.gid;
+    next.startTime = isNew ? Date.now() : prev.startTime;
+    next.endTime = next.over ? Date.now() : 0;
+    game = next;
+    mode = 'move';
+    pendingSlot = null;
+    preview = null;
+    hoverCell = null;
+
+    if(isNew){
+      hideOverlay(onlineOverlay);
+      hideOverlay(resultOverlay);
+      hideOverlay(startOverlay);
+      renderWallsFromGame(next, null);
+      updatePawnsInstant();
+      showToast(prev ? '新的一局开始了。' : '对手已就位，开局。');
+      if(next.over) setTimeout(showResult, 300);
+    } else {
+      const grew = next.h.size + next.v.size > prev.h.size + prev.v.size;
+      renderWallsFromGame(next, grew ? next.last : null);
+      updatePawns();
+      if(!prev.over && next.over){
+        playSound(next.winner === 'human' ? 'win' : 'lose');
+        announce(next.winner === 'human' ? '你赢了' : '对手赢了');
+        setTimeout(showResult, 420);
+      } else if(prev.turns !== next.turns && st.lastBy !== st.you && next.last){
+        if(next.last.type === 'wall'){
+          playSound('wall');
+          showToast('对手放下一块挡板。');
+        } else {
+          ripple(next.last.to.r, next.last.to.c, 'ai');
+          playSound(next.last.type === 'jump' ? 'jump' : 'move');
+        }
+      }
+      if(next.over && prev.over) refreshResultButtons();
+    }
+    renderModes();
+    renderAll();
+    startOnlineUI();
+  }
+
+  function normalizeCode(v){
+    return String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+  }
+
+  function defaultWsUrl(){
+    try{
+      const q = new URLSearchParams(location.search).get('ws');
+      if(q) return q;
+    }catch(e){}
+    try{
+      const saved = localStorage.getItem('jiexing.ws');
+      if(saved) return saved;
+    }catch(e){}
+    if(location.protocol === 'http:' || location.protocol === 'https:'){
+      return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws';
+    }
+    return 'ws://localhost:8080/ws';
+  }
+
+  function sendNet(obj){
+    if(!ws || ws.readyState !== 1) return false;
+    try{ ws.send(JSON.stringify(obj)); return true; }catch(e){ return false; }
+  }
+
+  function sendAction(action){
+    if(!sendNet({ t: 'action', action: action })) flash('连接中断，正在重连…');
+  }
+
+  function setOnlineMsg(text, kind){
+    onlineMsgEl.textContent = text || '';
+    onlineMsgEl.className = 'online-msg' + (kind ? ' ' + kind : '');
+  }
+
+  function setNetStatus(text, live){
+    const el = $('roomStatus');
+    el.textContent = text;
+    el.classList.toggle('live', !!live);
+  }
+
+  function closeNet(){
+    if(net && net.timer){ clearTimeout(net.timer); net.timer = null; }
+    if(ws){
+      const old = ws;
+      ws = null;
+      old.onopen = null;
+      old.onmessage = null;
+      old.onclose = null;
+      old.onerror = null;
+      try{ old.close(); }catch(e){}
+    }
+  }
+
+  function connectNet(){
+    if(!net) return;
+    closeNet();
+    let sock;
+    try{ sock = new WebSocket(net.url); }catch(e){ netFail('服务端地址无效：' + net.url); return; }
+    ws = sock;
+    if(net.intent !== 'rejoin') setOnlineMsg('正在连接服务端…');
+    sock.onopen = () => {
+      if(!net) return;
+      net.connected = true;
+      net.attempts = 0;
+      if(net.intent === 'create') sendNet({ t: 'create' });
+      else if(net.intent === 'join') sendNet({ t: 'join', code: net.code, token: net.token || '' });
+      else sendNet({ t: 'rejoin', code: net.code, token: net.token });
+      if(game && game.online) renderRail();
+    };
+    sock.onmessage = evt => {
+      let msg = null;
+      try{ msg = JSON.parse(evt.data); }catch(e){ return; }
+      if(msg && msg.t) onNetMessage(msg);
+    };
+    sock.onclose = () => {
+      if(ws === sock) ws = null;
+      onNetClose();
+    };
+    sock.onerror = () => {};
+  }
+
+  function onNetMessage(msg){
+    if(!net) return;
+    if(msg.t === 'room'){
+      net.code = msg.code;
+      net.you = msg.side;
+      net.token = msg.token;
+      net.intent = 'rejoin';
+      $('waitCode').textContent = msg.code;
+      $('roomCode').textContent = msg.code;
+      setNetStatus('房间 ' + msg.code);
+      return;
+    }
+    if(msg.t === 'state'){
+      const st = msg.state;
+      if(!st) return;
+      net.you = st.you || net.you;
+      if(!st.started){
+        onlineForm.hidden = true;
+        roomWait.hidden = false;
+        $('waitCode').textContent = net.code || st.code || '----';
+        $('waitHint').textContent = '等待对手加入…';
+        setOnlineMsg('把房间码发给对手，对手加入后自动开局。', 'ok');
+        setNetStatus('等待对手');
+        return;
+      }
+      applyServerState(st);
+      return;
+    }
+    if(msg.t === 'error'){
+      if(game && game.online){
+        flash(msg.msg);
+        sendNet({ t: 'sync' });
+      } else {
+        setOnlineMsg(msg.msg, 'error');
+        onlineForm.hidden = false;
+        roomWait.hidden = true;
+      }
+      return;
+    }
+    if(msg.t === 'info'){
+      showToast(msg.msg);
+      if(game && game.online) renderRail();
+      return;
+    }
+    if(msg.t === 'closed'){
+      teardownOnline(true, msg.msg || '对手离开了房间。');
+      return;
+    }
+    if(msg.t === 'left'){
+      teardownOnline(true, '已离开房间。');
+      return;
+    }
+  }
+
+  function netFail(msg){
+    if(game && game.online){
+      flash(msg);
+      renderRail();
+      return;
+    }
+    setOnlineMsg(msg, 'error');
+    onlineForm.hidden = false;
+    roomWait.hidden = true;
+    setNetStatus('未连接');
+  }
+
+  function onNetClose(){
+    if(!net) return;
+    net.connected = false;
+    if(!game || !game.online){
+      netFail('连接不上服务端。确认已运行 go run .，并检查地址。');
+      return;
+    }
+    if(game.over){ setNetStatus('已断开'); return; }
+    net.attempts += 1;
+    setNetStatus('重连中 ' + net.attempts);
+    renderRail();
+    if(net.attempts > 20){
+      teardownOnline(true, '连接中断，已退出房间。');
+      return;
+    }
+    net.intent = 'rejoin';
+    net.timer = setTimeout(() => { if(net) connectNet(); }, 2500);
+  }
+
+  function startOnlineUI(){
+    if(!game || !game.online || !net) return;
+    onlineCard.hidden = false;
+    $('roomCode').textContent = net.code || '----';
+    const opp = net.you === 'a' ? 'b' : 'a';
+    const oppHere = !!(net.present && net.present[opp]);
+    setNetStatus(oppHere ? '对手在线' : '等待对手', oppHere);
+    onlineForm.hidden = true;
+    roomWait.hidden = true;
+    hideOverlay(onlineOverlay);
+  }
+
+  function teardownOnline(showStart, msg){
+    closeNet();
+    net = null;
+    game = null;
+    clearTimeout(aiTimer);
+    aiTimer = null;
+    hideOverlay(onlineOverlay);
+    hideOverlay(resultOverlay);
+    onlineCard.hidden = true;
+    resetWalls();
+    layers.mark.innerHTML = '';
+    layers.preview.innerHTML = '';
+    $('invNameAi').textContent = '机器人';
+    $('legendAi').textContent = '机器人';
+    turnLabel.textContent = '准备开始';
+    turnMeta.textContent = '—';
+    $('diffLabel').textContent = DIFF_LABEL[selectedDiff];
+    renderPips($('pipsHuman'), WALL_LIMIT);
+    renderPips($('pipsAi'), WALL_LIMIT);
+    $('numHuman').textContent = WALL_LIMIT;
+    $('numAi').textContent = WALL_LIMIT;
+    btnRestart.disabled = true;
+    btnRestart.textContent = '重新开始';
+    btnRestart.classList.remove('warn');
+    restartArmed = false;
+    if(showStart) showOverlay(startOverlay);
+    if(msg) showToast(msg);
+    renderHint();
+  }
+
+  function openOnline(){
+    hideOverlay(startOverlay);
+    hideOverlay(resultOverlay);
+    onlineForm.hidden = false;
+    roomWait.hidden = true;
+    $('wsUrl').value = defaultWsUrl();
+    $('joinCode').value = '';
+    setOnlineMsg('');
+    showOverlay(onlineOverlay);
+    playSound('click');
+  }
+
+  function closeOnlineLobby(){
+    if(net) sendNet({ t: 'leave' });
+    closeNet();
+    net = null;
+    hideOverlay(onlineOverlay);
+    if(!game) showOverlay(startOverlay);
+    renderHint();
+  }
+
+  function onlineCreate(){
+    const url = ($('wsUrl').value || '').trim() || defaultWsUrl();
+    try{ localStorage.setItem('jiexing.ws', url); }catch(e){}
+    closeNet();
+    net = {
+      url: url, code: null, you: null, token: null, intent: 'create',
+      connected: false, attempts: 0, present: {}, rematch: {}, timer: null
+    };
+    setNetStatus('连接中');
+    setOnlineMsg('正在连接服务端…');
+    connectNet();
+  }
+
+  function onlineJoin(){
+    const code = normalizeCode($('joinCode').value);
+    if(code.length !== 4){ setOnlineMsg('房间码是四位字母或数字。', 'error'); return; }
+    const url = ($('wsUrl').value || '').trim() || defaultWsUrl();
+    try{ localStorage.setItem('jiexing.ws', url); }catch(e){}
+    closeNet();
+    net = {
+      url: url, code: code, you: null, token: null, intent: 'join',
+      connected: false, attempts: 0, present: {}, rematch: {}, timer: null
+    };
+    setNetStatus('连接中');
+    setOnlineMsg('正在加入房间…');
+    connectNet();
+  }
+
+  function leaveOnline(){
+    if(net) sendNet({ t: 'leave' });
+    teardownOnline(true, '已离开房间。');
   }
 
   /* ============ 指针交互 ============ */
@@ -1934,6 +2439,13 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
   }
 
   function startGame(diffKey){
+    // 从联机切回人机时，先礼貌地退出房间。
+    if(net){
+      sendNet({ t: 'leave' });
+      closeNet();
+      net = null;
+    }
+    onlineCard.hidden = true;
     clearTimeout(aiTimer);
     aiTimer = null;
     clearTimeout(flashTimer);
@@ -1966,20 +2478,42 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
     return (mm < 10 ? '0' + mm : mm) + ':' + (ss < 10 ? '0' + ss : ss);
   }
 
+  // 结算面板按钮文案：联机时“再来一局”要双方同意。
+  function refreshResultButtons(){
+    if(!game) return;
+    const again = $('btnAgain');
+    const sw = $('btnSwitch');
+    if(game.online){
+      const asked = !!(net && net.rematch && net.rematch[net.you]);
+      const opp = !!(net && net.you && net.rematch && net.rematch[net.you === 'a' ? 'b' : 'a']);
+      again.textContent = asked ? '已请求 · 等待对手' : (opp ? '同意再来一局' : '再来一局');
+      again.disabled = asked;
+      sw.textContent = '离开房间';
+    } else {
+      again.textContent = '再来一局 · ' + DIFF_LABEL[game.difficulty];
+      again.disabled = false;
+      sw.textContent = '换难度';
+    }
+  }
+
   function showResult(){
     if(!game || !game.over) return;
     const win = game.winner === 'human';
+    const online = !!game.online;
     const title = $('resultTitle');
-    title.textContent = win ? '你赢了' : '机器赢了';
+    title.textContent = win ? '你赢了' : (online ? '对手赢了' : '机器赢了');
     title.className = 'result-title ' + (win ? 'win' : 'lose');
-    $('resultSub').textContent = win
-      ? '你在第 ' + game.turns + ' 手踏进了第 1 行。'
-      : '机器人在第 ' + game.turns + ' 手踏进了第 13 行。';
+    $('statAiLabel').textContent = online ? '对手挡板' : '机器挡板';
+    if(win){
+      $('resultSub').textContent = '你在第 ' + game.turns + ' 手踏进了第 1 行。';
+    } else {
+      $('resultSub').textContent = (online ? '对手' : '机器人') + '在第 ' + game.turns + ' 手踏进了第 13 行。';
+    }
     $('statTurns').textContent = String(game.turns);
     $('statHumanWalls').textContent = String(WALL_LIMIT - game.inv.human) + ' / ' + WALL_LIMIT;
     $('statAiWalls').textContent = String(WALL_LIMIT - game.inv.ai) + ' / ' + WALL_LIMIT;
     $('statTime').textContent = formatTime((game.endTime || Date.now()) - game.startTime);
-    $('btnAgain').textContent = '再来一局 · ' + DIFF_LABEL[game.difficulty];
+    refreshResultButtons();
     showOverlay(resultOverlay);
     playSound('click');
   }
@@ -1992,12 +2526,24 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
   $('btnCloseRules').addEventListener('click', closeRules);
   rulesOverlay.addEventListener('click', evt => { if(evt.target === rulesOverlay) closeRules(); });
 
-  $('btnAgain').addEventListener('click', () => { playSound('click'); startGame(); });
+  $('btnAgain').addEventListener('click', () => {
+    playSound('click');
+    if(game && game.online){
+      if(!net || !net.connected){ flash('连接中断，正在重连…'); return; }
+      if(net.rematch && net.rematch[net.you]) return;
+      sendNet({ t: 'rematch' });
+      net.rematch[net.you] = true;
+      refreshResultButtons();
+      return;
+    }
+    startGame();
+  });
   $('btnSwitch').addEventListener('click', () => {
+    playSound('click');
+    if(game && game.online){ leaveOnline(); return; }
     hideOverlay(resultOverlay);
     showOverlay(startOverlay);
     selectDiff(selectedDiff);
-    playSound('click');
   });
 
   document.querySelectorAll('.diff-card').forEach(card => {
@@ -2009,7 +2555,19 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
   });
 
   btnRestart.addEventListener('click', () => {
-    if(!game || !game.started || game.over) return;
+    if(!game || !game.started) return;
+    if(game.online){
+      // 联机时只有终局才能发起“再来一局”，且需双方同意。
+      if(!game.over) return;
+      if(!net || !net.connected){ flash('连接中断，正在重连…'); return; }
+      if(net.rematch && net.rematch[net.you]) return;
+      sendNet({ t: 'rematch' });
+      net.rematch[net.you] = true;
+      playSound('click');
+      renderRail();
+      return;
+    }
+    if(game.over) return;
     if(!restartArmed){
       restartArmed = true;
       renderRail();
@@ -2020,6 +2578,46 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
     }
     clearTimeout(restartConfirmTimer);
     startGame(game.difficulty);
+  });
+
+  /* ---- 联机入口 ---- */
+  $('btnOnline').addEventListener('click', openOnline);
+  $('btnCreateRoom').addEventListener('click', onlineCreate);
+  $('btnJoinRoom').addEventListener('click', onlineJoin);
+  $('btnCloseOnline').addEventListener('click', closeOnlineLobby);
+  $('btnCancelRoom').addEventListener('click', closeOnlineLobby);
+  $('btnLeaveRoom').addEventListener('click', leaveOnline);
+  $('onlineOverlay').addEventListener('click', evt => {
+    if(evt.target === onlineOverlay && !(game && game.online)) closeOnlineLobby();
+  });
+
+  $('joinCode').addEventListener('input', evt => {
+    const v = normalizeCode(evt.target.value);
+    if(v !== evt.target.value) evt.target.value = v;
+  });
+  $('joinCode').addEventListener('keydown', evt => {
+    if(evt.key === 'Enter'){ evt.preventDefault(); onlineJoin(); }
+  });
+
+  $('btnCopyCode').addEventListener('click', () => {
+    const code = $('waitCode').textContent || '';
+    const done = ok => {
+      if(ok){ showToast('房间码 ' + code + ' 已复制。'); setOnlineMsg('已复制房间码。', 'ok'); }
+      else setOnlineMsg('复制失败，请手动记下房间码 ' + code + '。', 'error');
+    };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(code).then(() => done(true), () => done(false));
+      return;
+    }
+    try{
+      const input = document.createElement('input');
+      input.value = code;
+      document.body.appendChild(input);
+      input.select();
+      const ok = document.execCommand('copy');
+      input.remove();
+      done(!!ok);
+    }catch(e){ done(false); }
   });
 
   const btnSound = $('btnSound');
@@ -2036,10 +2634,12 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
   document.addEventListener('keydown', evt => {
     if(evt.key === 'Escape'){
       if(!rulesOverlay.hidden){ closeRules(); return; }
+      if(!onlineOverlay.hidden){ closeOnlineLobby(); return; }
       if(mode !== 'move'){ setMode('move'); return; }
       return;
     }
     if(!rulesOverlay.hidden) return;
+    if(!onlineOverlay.hidden) return;
     if(startOverlay.hidden === false){ return; }
     if(resultOverlay.hidden === false){ return; }
 
@@ -2047,7 +2647,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
     if(evt.key === '2'){ setMode('h'); return; }
     if(evt.key === '3'){ setMode('v'); return; }
     if(evt.key.toLowerCase() === 'r'){
-      if(game && game.started && !game.over) startGame(game.difficulty);
+      if(game && game.started && !game.over && !game.online) startGame(game.difficulty);
       return;
     }
     if(!canHumanAct() || mode !== 'move') return;
