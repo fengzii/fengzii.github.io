@@ -1947,6 +1947,8 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
   function localLastFromServer(a, flip){
     if(!a) return null;
     if(a.type === 'wall'){
+      // 服务端若漏传 r/c（0 被省略），这里会算出 NaN 并把挡板画到棋盘外，直接丢弃。
+      if(!Number.isFinite(a.r) || !Number.isFinite(a.c)) return null;
       return {
         type: 'wall',
         kind: a.kind,
@@ -2060,7 +2062,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offse
     if(location.protocol === 'http:' || location.protocol === 'https:'){
       return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws';
     }
-    return 'ws://localhost:8080/ws';
+    return 'ws://192.168.1.155:8080/ws';
   }
 
   function sendNet(obj){

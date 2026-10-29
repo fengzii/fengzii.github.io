@@ -47,9 +47,11 @@ type Pos struct {
 type Action struct {
 	Type string `json:"type"`           // move | jump | wall
 	Kind string `json:"kind,omitempty"` // h | v，仅 wall 使用
-	R    int    `json:"r,omitempty"`
-	C    int    `json:"c,omitempty"`
-	To   *Pos   `json:"to,omitempty"`
+	// R/C 不能 omitempty：挡板落在第 0 行/第 0 列时若被省略，客户端会拿到
+	// undefined，翻转后算出 NaN，进而把挡板画到棋盘外。
+	R  int  `json:"r"`
+	C  int  `json:"c"`
+	To *Pos `json:"to,omitempty"`
 }
 
 type Game struct {
