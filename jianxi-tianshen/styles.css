@@ -86,14 +86,25 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--coral);outline-offs
   display:block;width:100%;height:100%;
   touch-action:none;cursor:crosshair;
 }
+/* 开局先落在地图上：游戏内的浮层全部收起，画面交给总图。 */
+.board.atlas .hud,
+.board.atlas .follow-btn,
+.board.atlas #minimap{
+  visibility:hidden;
+  opacity:0;
+  pointer-events:none;
+}
+.board.atlas #stage{cursor:default}
 #minimap{
-  position:absolute;top:calc(70px + var(--safe-t));right:10px;
+  position:absolute;bottom:calc(10px + var(--safe-b));right:10px;
   border-radius:6px;
   border:1px solid rgba(222,158,52,.3);
   background:var(--mini-bg,rgba(9,24,21,.72));
   pointer-events:none;
   opacity:.92;
+  animation:mapIn .3s ease both;
 }
+@keyframes mapIn{from{opacity:0;transform:translateY(6px) scale(.96)}to{opacity:.92;transform:none}}
 .follow-btn{
   position:absolute;right:10px;bottom:calc(150px + var(--safe-b));
   padding:7px 11px;border-radius:9px;
@@ -158,26 +169,34 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--coral);outline-offs
 #gapFill.warn{background:linear-gradient(90deg,var(--gold),#EFA44C)}
 #gapFill.danger{background:linear-gradient(90deg,#D9633F,var(--danger))}
 
-/* ---------------- 底部 HUD ---------------- */
+/* ---------------- 底部 HUD：纯透明，只留图标与数量 ---------------- */
 .hud-bottom{
-  bottom:calc(8px + var(--safe-b));
-  padding:4px 8px 8px;
-  border-radius:16px;
+  bottom:calc(10px + var(--safe-b));
+  padding:0;
   pointer-events:auto;
+  background:none;
+  border:none;
+  box-shadow:none;
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
 }
 .hint{
-  display:flex;align-items:center;gap:8px;
-  padding:5px 8px 8px;
-  color:#E4EFEA;font-size:11.5px;line-height:1.45;
+  position:absolute;left:0;right:0;bottom:calc(100% + 8px);
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  padding:0;
+  color:#EAF3EE;font-size:11.5px;line-height:1.4;text-align:center;
+  text-shadow:0 1px 6px rgba(0,0,0,.85),0 0 20px rgba(0,0,0,.55);
+  opacity:0;transform:translateY(5px);
+  transition:opacity .25s ease,transform .25s ease;
   pointer-events:none;
-  transition:color .2s;
 }
+.hint.show{opacity:1;transform:none}
 .hint .dot{
   width:6px;height:6px;border-radius:50%;background:var(--gold);flex:0 0 auto;
   box-shadow:0 0 0 4px rgba(222,158,52,.16);
   transition:background .2s;
 }
-.hint.err{color:#FFD9CC}
+.hint.err{color:#FFD0C0}
 .hint.err .dot{background:#F4A089;box-shadow:0 0 0 4px rgba(244,160,137,.18)}
 
 /* ---------------- 结算 / 暂停 ---------------- */
@@ -227,49 +246,55 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--coral);outline-offs
 .btn.ghost{background:transparent;color:var(--ink);border-color:var(--line-2)}
 .btn.ghost:active{background:var(--paper);color:var(--ink)}
 
-/* ---------------- 游戏内工具栏 ---------------- */
+/* ---------------- 游戏内工具栏：透明、图标 + 数量 ---------------- */
 .dock{
-  display:flex;flex-wrap:wrap;justify-content:center;gap:6px;
-  padding:0 0 1px;
+  display:flex;flex-wrap:wrap;justify-content:center;gap:13px;
+  padding:0 6px 2px;
 }
 .tool{
-  display:flex;align-items:center;gap:6px;
-  min-height:38px;padding:5px 9px;
-  border:1px solid rgba(255,255,255,.15);border-radius:11px;
-  background:rgba(255,255,255,.08);color:#EFEADB;
-  cursor:pointer;
-  transition:background .15s,border-color .15s,color .15s,transform .12s;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:0;border:none;background:none;color:#F5E3B8;
+  cursor:pointer;transition:transform .12s;
+  -webkit-tap-highlight-color:transparent;
 }
-.tool:active{transform:scale(.965)}
+.tool:active{transform:scale(.93)}
 .tool .tool-ico{
-  width:22px;height:22px;border-radius:7px;background:var(--paper-3);
-  display:grid;place-items:center;transition:background .15s;flex:0 0 auto;
+  width:34px;height:34px;border-radius:11px;
+  background:rgba(247,240,223,.94);
+  border:1px solid rgba(0,0,0,.20);
+  display:grid;place-items:center;flex:0 0 auto;
+  box-shadow:0 3px 10px rgba(0,0,0,.45);
+  transition:background .15s,box-shadow .15s,transform .15s;
 }
-.tool .tool-nm{font-size:11px;font-weight:600;letter-spacing:.03em}
-.tool .cnt{font-family:var(--mono);font-size:10.5px;line-height:1;color:var(--gold-soft);font-variant-numeric:tabular-nums}
-.tool .cnt::before{content:'×';margin-right:1px;color:rgba(245,227,184,.66)}
-.tool.on{
-  background:rgba(240,197,120,.20);border-color:rgba(240,197,120,.62);color:#FFF9E9;
-  box-shadow:0 8px 18px -12px rgba(0,0,0,.9);
+.tool .cnt{
+  font-family:var(--mono);font-size:11px;line-height:1;color:#F7E9C8;
+  font-variant-numeric:tabular-nums;
+  text-shadow:0 1px 4px rgba(0,0,0,.9);
 }
-.tool.on .tool-ico{background:var(--paper-2)}
-.tool.on .cnt{color:#FFE6AE}
+.tool .cnt::before{content:'×';margin-right:1px;color:rgba(247,233,200,.7)}
+.tool.on .tool-ico{
+  background:var(--paper-2);
+  box-shadow:0 0 0 2px rgba(240,197,120,.95),0 5px 14px rgba(0,0,0,.5);
+  transform:translateY(-2px);
+}
+.tool.on .cnt{color:#FFE7B0}
 
 /* ---------------- 指示牌方向条 ---------------- */
 .dirbar{
   display:flex;align-items:center;justify-content:center;gap:6px;
-  padding:0 0 7px;
+  padding:0 0 8px;
 }
-.dir-lbl{font-size:10.5px;font-weight:600;letter-spacing:.14em;color:rgba(230,242,236,.6)}
+.dir-lbl{font-size:10.5px;font-weight:600;letter-spacing:.14em;color:rgba(230,242,236,.7);text-shadow:0 1px 4px rgba(0,0,0,.8)}
 .dirbar button{
   width:36px;height:28px;
-  border:1px solid rgba(255,255,255,.16);border-radius:9px;
-  background:rgba(255,255,255,.09);color:#F1ECDD;
+  border:1px solid rgba(255,255,255,.24);border-radius:9px;
+  background:rgba(12,26,23,.78);color:#F5EFDF;
+  box-shadow:0 3px 10px rgba(0,0,0,.4);
   font-size:14px;font-weight:700;line-height:1;
   cursor:pointer;transition:background .15s,border-color .15s,color .15s,transform .12s;
 }
 .dirbar button:active{transform:scale(.96)}
-.dirbar button.on{background:rgba(240,197,120,.85);border-color:rgba(240,197,120,.9);color:#2A2418}
+.dirbar button.on{background:rgba(240,197,120,.88);border-color:rgba(240,197,120,.95);color:#2A2418}
 
 /* ---------------- 小屏 / 横屏微调 ---------------- */
 @media (max-width:379px){
@@ -277,16 +302,15 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--coral);outline-offs
   .brand-txt b{font-size:14px}
   .reads{gap:7px}
   .icon-btn{width:28px;height:28px;border-radius:8px}
-  .tool{padding:5px 7px;gap:5px}
-  .tool .tool-nm{font-size:10px;letter-spacing:0}
+  .dock{gap:10px}
+  .tool .tool-ico{width:32px;height:32px}
   .dirbar button{width:33px}
 }
 @media (max-height:640px){
   .hud-top{padding:6px 8px 8px}
   .brand-txt b{font-size:14px}
-  .tool{min-height:34px;padding:4px 7px}
-  .tool .tool-ico{width:20px;height:20px}
-  .hint{font-size:10.5px;padding:3px 8px 6px}
+  .tool .tool-ico{width:30px;height:30px}
+  .hint{font-size:10.5px}
 }
 @media (max-height:520px){
   .brand-txt i{display:none}

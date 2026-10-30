@@ -35,6 +35,9 @@
       </div>
 
       <div class="acts">
+        <button class="icon-btn" id="btnMap" title="关卡地图（M）" aria-label="关卡地图">
+          <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 4v14M15 6v14" stroke="currentColor" stroke-width="1.4" opacity=".6"/></svg>
+        </button>
         <button class="icon-btn" id="btnHelp" title="道具与地形效果" aria-label="道具与地形效果">?</button>
         <button class="icon-btn" id="btnPause" title="暂停（空格）" aria-label="暂停">Ⅱ</button>
         <button class="icon-btn" id="btnRestart" title="重开（R）" aria-label="重开本关">↻</button>
@@ -54,6 +57,7 @@
         <div class="ov-actions">
           <button class="btn" id="ovRetry">重试本关</button>
           <button class="btn ghost" id="ovNext" hidden>下一关</button>
+          <button class="btn ghost" id="ovMap" hidden>返回关卡地图</button>
         </div>
       </div>
     </div>
@@ -65,7 +69,7 @@
         <ul class="fx-list">
           <li><b>落石</b><i>封路、填坑、砸小怪</i></li>
           <li><b>木板</b><i>盖住水面、熔岩、尖刺、泥沼，也能架住深坑</i></li>
-          <li><b>指示牌</b><i>立在岔口，箭头指向哪边，他就走哪边</i></li>
+          <li><b>指示牌</b><i>立在岔口，箭头指向哪边，他就走哪边；走到牌下不再犹豫</i></li>
           <li><b>圣光</b><i>大怪物定身 3 秒</i></li>
           <li><b>炸弹</b><i>占住一格，3 秒后炸开九格内的石头与裂墙，整块石墙炸不动</i></li>
           <li><b>裂墙</b><i>带裂纹的墙，炸弹能轰塌，塌后变回地面</i></li>
@@ -84,6 +88,7 @@
           <li><b>钥匙</b><i>捡齐所有钥匙，锁门才会打开</i></li>
           <li><b>锁门</b><i>钥匙没齐前当墙用，齐了就是门洞</i></li>
           <li><b>宝箱</b><i>他踩到就补给你道具</i></li>
+          <li><b>地图</b><i>捡到后右下角才会亮起小地图</i></li>
           <li><b>传送门</b><i>一对相连，踏进去立刻从另一头出来</i></li>
           <li><b>冰面</b><i>踏上去停不下来，撞上墙或落石才停</i></li>
         </ul>
@@ -111,27 +116,22 @@
       <footer class="dock">
         <button class="tool on" id="toolRock" data-tool="rock" title="落石：封路、填坑、砸小怪（1）">
           <span class="tool-ico"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l2-7 6-3 6 3 2 7-3 3H7z" fill="#B9B4A8" stroke="#20302D" stroke-width="1.6"/><path d="M8 11l4-2 2 2" fill="none" stroke="#E6E2D6" stroke-width="1.6" stroke-linecap="round"/></svg></span>
-          <span class="tool-nm">落石</span>
           <span class="cnt" id="rockCnt">1</span>
         </button>
         <button class="tool" id="toolPlank" data-tool="plank" title="木板：铺过水面、熔岩、尖刺、泥沼与深坑（2）">
           <span class="tool-ico"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13l18-6" stroke="#B57B44" stroke-width="6" stroke-linecap="round"/><path d="M6 12l14-5M8 16l13-5" stroke="#7E5129" stroke-width="1.2"/></svg></span>
-          <span class="tool-nm">木板</span>
           <span class="cnt" id="plankCnt">0</span>
         </button>
         <button class="tool" id="toolLight" title="圣光：让大怪物停顿 3 秒（3）">
           <span class="tool-ico"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="#F0C578" stroke="#7A4F08" stroke-width="1.4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1" stroke="#7A4F08" stroke-width="1.6" stroke-linecap="round"/></svg></span>
-          <span class="tool-nm">圣光</span>
           <span class="cnt" id="lightCnt">0</span>
         </button>
         <button class="tool" id="toolBomb" data-tool="bomb" title="炸弹：占住一格，3 秒后炸开九格内的石头与裂墙（4）">
           <span class="tool-ico"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="15" r="6.2" fill="#4A4A48" stroke="#1B1B19" stroke-width="1.6"/><path d="M14 9l3-3M17 6l2-2M19 6l1.5 1.5" stroke="#B57B44" stroke-width="1.8" stroke-linecap="round"/><circle cx="19" cy="4" r="1.5" fill="#F2793C"/></svg></span>
-          <span class="tool-nm">炸弹</span>
           <span class="cnt" id="bombCnt">0</span>
         </button>
         <button class="tool" id="toolSign" data-tool="sign" title="指示牌：立在岔口，勇者会朝箭头方向走（5）">
           <span class="tool-ico"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 21V8" stroke="#6B4A2B" stroke-width="2.6" stroke-linecap="round"/><rect x="4" y="4" width="15" height="9.5" rx="2" fill="#C48D52" stroke="#6B4A2B" stroke-width="1.4"/><path d="M7.4 8.8h7.2m0 0l-2.2-2.2m2.2 2.2l-2.2 2.2" stroke="#2E6B63" stroke-width="1.7" fill="none" stroke-linecap="round"/></svg></span>
-          <span class="tool-nm">指示牌</span>
           <span class="cnt" id="signCnt">0</span>
         </button>
       </footer>

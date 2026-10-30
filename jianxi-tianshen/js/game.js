@@ -32,10 +32,10 @@ const mini=document.getElementById('minimap');
 const mctx=mini.getContext('2d');
 const dpr=Math.min(window.devicePixelRatio||1,2);
 let MM=3;
-/* 小地图宽度收在 120px 上下：小地图点大一点，大地图点小一点。 */
+/* 小地图要和底部道具排在同一行：宽收在 118px 上下，高也别超过道具行的高度。 */
 function layoutGrid(cols,rows){
   COLS=cols; ROWS=rows; W=COLS*TILE; H=ROWS*TILE;
-  MM=clamp(Math.round(118/COLS),2,5);
+  MM=clamp(Math.round(Math.min(118/COLS,46/ROWS)),2,5);
   mini.width=COLS*MM*dpr; mini.height=ROWS*MM*dpr;
   mini.style.width=(COLS*MM)+'px'; mini.style.height=(ROWS*MM)+'px';
 }
@@ -52,8 +52,19 @@ function measure(){
   const w=Math.max(1,box.clientWidth), h=Math.max(1,box.clientHeight);
   view.w=w; view.h=h;
   canvas.width=Math.round(w*dpr); canvas.height=Math.round(h*dpr);
-  const px=clamp(Math.min(w/10,h/14),30,54)*(G.zoom||1);
-  view.scale=clamp(px,26,58)/TILE;
+  /* 上下两块 HUD 都是浮层：量出它们的下沿与上沿，中间那条带子才是迷宫能用的高度。 */
+  const cr=canvas.getBoundingClientRect();
+  const hud=document.querySelector('.hud-top');
+  G.hudTop=hud?Math.max(0,hud.getBoundingClientRect().bottom-cr.top):0;
+  const dock=document.querySelector('.hud-bottom');
+  G.hudBottom=dock?Math.max(0,h-(dock.getBoundingClientRect().top-cr.top)):0;
+  const basePx=clamp(Math.min(w/10,h/14),30,54)*(G.zoom||1);
+  /* 小地图铺不满屏幕时按可用高度放大：上贴面板下沿、下抵工具栏上沿；
+     横向至少留 7 列在画面里，免得镜头贴得太近。只放大，不缩小大地图。 */
+  const availH=Math.max(140,h-(G.hudTop||0)-(G.hudBottom||0)-6);
+  const fillPx=Math.min(availH/ROWS,Math.max(26,w/7));
+  const px=Math.max(basePx,fillPx);
+  view.scale=clamp(px,26,76)/TILE;
   makeVignette();
 }
 function makeVignette(){
@@ -64,7 +75,12 @@ function makeVignette(){
 function clampCam(){
   const vw=view.w/view.scale, vh=view.h/view.scale;
   cam.x=vw>=W?(W-vw)/2:clamp(cam.x,0,W-vw);
-  cam.y=vh>=H?(H-vh)/2:clamp(cam.y,0,H-vh);
+  if(vh>=H){
+    /* 地图比屏幕矮时顶到顶部 HUD 的下沿，别让画面悬在半空。 */
+    cam.y=-(G.hudTop+2)/view.scale;
+  }else{
+    cam.y=clamp(cam.y,0,H-vh);
+  }
 }
 /* 镜头朝他前进的方向多探两格，岔口才来得及出现在画面里；玩家拖动时暂停跟随。 */
 function followCam(dt,snap){
@@ -103,7 +119,8 @@ const el={
   ov:document.getElementById('ov'), ovEyebrow:document.getElementById('ovEyebrow'),
   ovTitle:document.getElementById('ovTitle'), ovDesc:document.getElementById('ovDesc'),
   ovStats:document.getElementById('ovStats'), ovPrimary:document.getElementById('ovRetry'),
-  ovSecondary:document.getElementById('ovNext'),
+  ovSecondary:document.getElementById('ovNext'), ovMap:document.getElementById('ovMap'),
+  mapBtn:document.getElementById('btnMap'),
   follow:document.getElementById('btnFollow'), help:document.getElementById('help'),
   helpBtn:document.getElementById('btnHelp'), helpClose:document.getElementById('helpClose')
 };
@@ -125,7 +142,10 @@ const G={
   bubble:{kind:null,at:0}, spikePop:null, helpOpen:false, wasPaused:false,
   lastPlace:0,
   filled:new Set(), mobs:[], poofs:new Map(), lightFx:-1e9, caughtBy:'', blastFx:-1e9,
-  autoPrefs:{}, theme:null, bg:'#10231F', vigColor:'rgba(10,24,21,.45)', zoom:1
+  autoPrefs:{}, theme:null, bg:'#10231F', vigColor:'rgba(10,24,21,.45)', zoom:1, hudTop:0, hudBottom:0,
+  hasMap:false, mapItem:null, vision:2,
+  /* 总图：atlas=true 时主循环只画地图，游戏逻辑整体冻结。 */
+  atlas:false, atlasCursor:null, atlasHoverAt:0, atlasLeaving:null, cleared:new Set()
 };
 
 function key(x,y){return x+','+y;}
@@ -258,11 +278,60 @@ function buildAutoPrefs(){
   }
 }
 
+/* 地图道具：沿勇者的偏好路线往前十几步，摆在必经的走廊上；
+   捡到之前小地图不显示，捡到后才点亮。 */
+function placeMapItem(){
+  G.mapItem=null;
+  if(!G.exit) return;
+  let x=G.start.x, y=G.start.y;
+  const route=[];
+  for(let i=0;i<400;i++){
+    if(x===G.exit.x&&y===G.exit.y) break;
+    const dirs=G.autoPrefs[key(x,y)];
+    if(!dirs||!dirs.length) break;
+    const d=dirs[0];
+    const nx=x+DIRS[d][0], ny=y+DIRS[d][1];
+    if(!inb(nx,ny)||!prefWalkable(nx,ny)) break;
+    x=nx; y=ny; route.push({x,y});
+  }
+  /* 尽量在第一个坑/尖刺之前让他拿到地图，否则常常还没捡到就出事了。 */
+  let want=clamp(Math.round(route.length*.16),12,26);
+  const hz=route.findIndex(c=>{const ch=G.map[c.y][c.x];return ch==='x'||ch==='o';});
+  if(hz>=0) want=Math.min(want,Math.max(6,hz-2));
+  const ok=(c)=>{
+    const ch=G.map[c.y][c.x];
+    if(ch!=='.'&&ch!=='=') return false;
+    if(G.rocks.has(key(c.x,c.y))) return false;
+    return !(G.mobs||[]).some(m=>m.x===c.x&&m.y===c.y);
+  };
+  let cell=null;
+  for(let i=Math.min(want,route.length-1);i>=want-8&&i>=0;i--){
+    if(ok(route[i])){ cell=route[i]; break; }
+  }
+  if(!cell) cell=route.find(ok)||null;
+  if(!cell) return;
+  G.map[cell.y][cell.x]='M';
+  G.mapItem={x:cell.x,y:cell.y,taken:false};
+}
+
+function takeMapItem(x,y){
+  G.mapItem.taken=true; G.hasMap=true;
+  G.map[y][x]='.';
+  G.poofs.set(key(x,y),{x,y,at:G.t});
+  G.shake=3;
+  mini.hidden=false;
+  buildMini(); drawMini();
+  say('捡到地图！小地图已经打开了。',false);
+}
+
 function startLevel(i){
+  exitAtlas();
   G.levelIndex=i; G.level=LEVELS[i];
   layoutGrid(G.level.map[0].length,G.level.map.length);
   /* 小地图视野放宽，大地图稍微收紧，难度上来时压迫感更强。 */
   G.zoom=.72+.24*clamp((COLS-19)/28,0,1);
+  /* 勇者视野固定 2 格：只看眼前两格，再远的死胡同看不到。 */
+  G.vision=2;
   G.theme=(window.THEMES||{})[G.level.theme]||null;
   applyScene();
   measure();
@@ -281,6 +350,9 @@ function startLevel(i){
   G.blasts=new Map(); G.bombs=new Map(); G.blastFx=-1e9;
   G.filled=new Set(); G.poofs=new Map(); G.lightFx=-1e9; G.caughtBy=''; G.spikePop=null;
   G.mobs=(G.level.mobs||[]).map(m=>({x:m.x,y:m.y,axis:m.axis,min:m.min,max:m.max,speed:m.speed,dir:m.dir||1,alive:true,nextAt:START+250}));
+  /* 每关都要重新捡一次地图：开局先把小地图藏起来。 */
+  G.hasMap=false; G.mapItem=null; mini.hidden=true;
+  placeMapItem();
   G.items={rock:G.level.rock,plank:G.level.plank,light:G.level.light||0,bomb:G.level.bomb||0,sign:G.level.sign||0};
   G.tool=G.items.rock>0?'rock':(G.items.plank>0?'plank':'rock');
   G.hover=null; G.shake=0; G.shakeCell=null; G.seen=new Set();
@@ -373,13 +445,12 @@ function updateHud(){
 function say(text,isErr){
   el.hintText.textContent=text;
   el.hint.classList.toggle('err',!!isErr);
+  el.hint.classList.add('show');
   clearTimeout(G.hintTimer);
-  if(isErr){
-    G.hintTimer=setTimeout(()=>{
-      el.hint.classList.remove('err');
-      el.hintText.textContent=G.hintBase;
-    },2600);
-  }
+  G.hintTimer=setTimeout(()=>{
+    el.hint.classList.remove('show','err');
+    el.hintText.textContent=G.hintBase;
+  },2600);
 }
 
 function showOverlay(o){
@@ -395,6 +466,7 @@ function showOverlay(o){
   };
   setBtn(el.ovPrimary,o.primary);
   setBtn(el.ovSecondary,o.secondary);
+  setBtn(el.ovMap,o.tertiary);
   el.ov.classList.add('show');
 }
 function hideOverlay(){el.ov.classList.remove('show');}
@@ -424,6 +496,33 @@ function byPref(list,x,y){
   });
 }
 
+/* 勇者视野：从当前格朝某个方向往前看 vision 格。
+   一路都是单行道、尽头又是墙，说明这条支路他一眼就能看穿是死胡同；
+   尽头要是终点、钥匙、宝箱、地图或传送门，那还是值得走一趟。 */
+function visionDeadEnd(x,y,dir){
+  const vision=G.vision||2;
+  let fx=x, fy=y;
+  let cx=x+DIRS[dir][0], cy=y+DIRS[dir][1];
+  for(let i=0;i<vision;i++){
+    if(!inb(cx,cy)||isWall(cx,cy)||G.rocks.has(key(cx,cy))||mobAt(cx,cy)) return true;
+    let next=null, exits=0;
+    for(const d in DIRS){
+      const nx=cx+DIRS[d][0], ny=cy+DIRS[d][1];
+      if(nx===fx&&ny===fy) continue;
+      if(!inb(nx,ny)||isWall(nx,ny)||G.rocks.has(key(nx,ny))) continue;
+      exits++;
+      if(!next) next={x:nx,y:ny};
+    }
+    if(exits>=2) return false;
+    if(exits===0){
+      const ch=cellAt(cx,cy);
+      return !(ch==='E'||ch==='k'||ch==='t'||ch==='M'||ch==='1'||ch==='2');
+    }
+    fx=cx; fy=cy; cx=next.x; cy=next.y;
+  }
+  return false;
+}
+
 /* 勇者只认自己眼前的偏好：岔口立了指示牌，就先照箭头走；箭头那条过不去，才退回原本的偏好。 */
 function pickOption(opts){
   const h=G.hero;
@@ -434,7 +533,10 @@ function pickOption(opts){
   }
   const notBack=opts.filter(o=>!(o.x===h.from.x&&o.y===h.from.y));
   const pool=notBack.length?notBack:opts;
-  return byPref(pool,h.x,h.y)[0]||null;
+  const sorted=byPref(pool,h.x,h.y);
+  /* 视野里已经看穿的死路先不走；实在只剩死路，才硬着头皮进去。 */
+  const sane=sorted.filter(o=>!visionDeadEnd(h.x,h.y,o.dir));
+  return (sane.length?sane:sorted)[0]||null;
 }
 
 function heroIntent(){
@@ -463,6 +565,7 @@ function moveHero(o){
   }
   if(ch==='k') takeKey(o.x,o.y);
   if(ch==='t') takeChest(o.x,o.y);
+  if(ch==='M') takeMapItem(o.x,o.y);
   if(ch==='1'||ch==='2'){
     const to=G.portalTo.get(k);
     if(to){
@@ -561,9 +664,10 @@ function heroTick(){
     return;
   }
   const k=key(h.x,h.y);
-  /* 只在「岔口、且那条死路还开着」时犹豫：给玩家一个封路的窗口。 */
+  /* 只在「岔口、且那条死路还开着」时犹豫：给玩家一个封路的窗口；
+     要是这里已经立了指示牌，他一眼就知道往哪走，省掉思考的时间。 */
   const forkDir=G.level.forks&&G.level.forks[k];
-  if(forkDir&&!G.seen.has(k)&&opts.some(o=>o.dir===forkDir)){
+  if(forkDir&&!G.seen.has(k)&&opts.some(o=>o.dir===forkDir)&&!G.signs.has(k)){
     G.seen.add(k);
     h.mode='hesitate'; h.waitUntil=t+HESITATE;
     return;
@@ -667,6 +771,7 @@ function detonate(b,k){
 function win(){
   if(G.phase!=='playing') return;
   G.phase='won'; G.hero.mode='done';
+  G.cleared.add(G.levelIndex);
   hideOverlay(); G.overlayOpen=true;
   say('他安全抵达了！',false);
   const secs=((G.t-G.startAt)/1000).toFixed(1);
@@ -688,7 +793,8 @@ function win(){
       desc:'勇者安全走进了光里。',
       stats:stats,
       primary:next?{label:'下一关',fn:()=>{hideOverlay();startLevel(G.levelIndex+1);}}:retry,
-      secondary:next?retry:null
+      secondary:next?retry:null,
+      tertiary:{label:'返回关卡地图',fn:()=>{hideOverlay();G.overlayOpen=false;openAtlas();}}
     });
   },600);
 }
@@ -707,7 +813,8 @@ function timeUp(){
       desc:'时间到，他还困在迷宫里。'+(G.level.failHint||''),
       stats:'<div><b>'+secs+'s</b>坚持了</div>'+(G.keyTotal?'<div><b>'+taken+' / '+G.keyTotal+'</b>钥匙</div>':''),
       primary:{label:'再试一次',fn:()=>{hideOverlay();startLevel(G.levelIndex);}},
-      secondary:null
+      secondary:null,
+      tertiary:{label:'返回关卡地图',fn:()=>{hideOverlay();G.overlayOpen=false;openAtlas();}}
     });
   },700);
 }
@@ -751,7 +858,8 @@ function caught(){
       desc:desc+G.level.failHint,
       stats:stats,
       primary:{label:'重试本关',fn:()=>{hideOverlay();startLevel(G.levelIndex);}},
-      secondary:null
+      secondary:null,
+      tertiary:{label:'返回关卡地图',fn:()=>{hideOverlay();G.overlayOpen=false;openAtlas();}}
     });
   },800);
 }
@@ -768,7 +876,7 @@ function canPlace(x,y){
     if(ch==='m') return {ok:false,reason:'石头会陷进泥里，用木板铺平它'};
     if(ch==='x') return {ok:false,reason:'尖刺会顶开落石，换木板盖住它'};
     if(ch==='=') return {ok:false,reason:'这里是必经之路，堵住他会困死'};
-    if(ch==='S'||ch==='E'||ch==='k'||ch==='d'||ch==='t'||ch==='1'||ch==='2') return {ok:false,reason:'关键位置不能堵'};
+    if(ch==='S'||ch==='E'||ch==='k'||ch==='d'||ch==='t'||ch==='1'||ch==='2'||ch==='M') return {ok:false,reason:'关键位置不能堵'};
     if(ch==='o'&&G.filled.has(k)) return {ok:false,reason:'这个坑已经填好了'};
     if(G.hero.x===x&&G.hero.y===y) return {ok:false,reason:'不能砸到他'};
     const m=G.mode==='timer'?null:monsterPos();
@@ -781,7 +889,7 @@ function canPlace(x,y){
     if(ch==='#'||ch==='c') return {ok:false,reason:'炸弹放到旁边才能崩开它'};
     if(ch==='~'||ch==='^') return {ok:false,reason:'水里点不着火'};
     if(ch==='o') return {ok:false,reason:'坑里放不稳'};
-    if(ch==='S'||ch==='E'||ch==='k'||ch==='d'||ch==='t'||ch==='1'||ch==='2') return {ok:false,reason:'关键位置不能放'};
+    if(ch==='S'||ch==='E'||ch==='k'||ch==='d'||ch==='t'||ch==='1'||ch==='2'||ch==='M') return {ok:false,reason:'关键位置不能放'};
     if(G.rocks.has(k)||G.planks.has(k)) return {ok:false,reason:'这一格已经有东西了'};
     const mp=G.mode==='timer'?null:monsterPos();
     if((G.hero.x===x&&G.hero.y===y)||(mp&&mp.x===x&&mp.y===y)) return {ok:false,reason:'不能直接放在脚下'};
@@ -794,7 +902,7 @@ function canPlace(x,y){
     if(ch==='#'||ch==='c') return {ok:false,reason:'墙面上立不住指示牌'};
     if(ch==='~'||ch==='^'||ch==='o'||ch==='x'||ch==='m') return {ok:false,reason:'指示牌要立在平整的地面上'};
     if(ch==='i') return {ok:false,reason:'冰面上立不住指示牌'};
-    if(ch==='S'||ch==='E'||ch==='k'||ch==='d'||ch==='t'||ch==='1'||ch==='2') return {ok:false,reason:'关键位置不能立牌'};
+    if(ch==='S'||ch==='E'||ch==='k'||ch==='d'||ch==='t'||ch==='1'||ch==='2'||ch==='M') return {ok:false,reason:'关键位置不能立牌'};
     if(G.rocks.has(k)||G.planks.has(k)||G.bombs.has(k)) return {ok:false,reason:'这一格已经有东西了'};
     if(G.hero.x===x&&G.hero.y===y) return {ok:false,reason:'不能立在他脚下'};
     const mp=G.mode==='timer'?null:monsterPos();
@@ -918,6 +1026,8 @@ el.ov.addEventListener('click',()=>{
   if(G.phase==='ready'){clearTimeout(G.overlayTimer);hideOverlay();G.overlayOpen=false;beginPlay();}
 });
 el.restart.onclick=()=>{ clearTimeout(G.overlayTimer); hideOverlay(); G.overlayOpen=false; G.paused=false; startLevel(G.levelIndex); };
+/* 顶栏的地图键：随时退回总图，再点徽章换一关。 */
+if(el.mapBtn) el.mapBtn.onclick=()=>{ if(!G.atlas) openAtlas(); };
 
 /* 拖动过地图后，点一下就把镜头交还给勇者。 */
 if(el.follow) el.follow.onclick=()=>{
@@ -944,12 +1054,18 @@ if(el.help) el.help.addEventListener('click',e=>{ if(e.target===el.help) closeHe
 /* 单指拖动 = 平移地图（方便天神提前规划线路）；轻点 = 落子。 */
 let drag=null;
 canvas.addEventListener('pointerdown',e=>{
+  if(G.atlas){ atlasPress={id:e.pointerId,x:e.clientX,y:e.clientY,moved:false}; try{canvas.setPointerCapture(e.pointerId);}catch(err){} return; }
   if(G.overlayOpen||G.paused) return;
   if(e.pointerType==='touch') G.hover=null;
   drag={id:e.pointerId,sx:e.clientX,sy:e.clientY,x:e.clientX,y:e.clientY,moved:false};
   try{canvas.setPointerCapture(e.pointerId);}catch(err){}
 });
 canvas.addEventListener('pointermove',e=>{
+  if(G.atlas){
+    if(atlasPress&&atlasPress.id===e.pointerId&&Math.hypot(e.clientX-atlasPress.x,e.clientY-atlasPress.y)>10) atlasPress.moved=true;
+    atlasPointerMove(e.clientX,e.clientY);
+    return;
+  }
   if(drag&&drag.id===e.pointerId){
     if(!drag.moved){
       if(Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)<10) return;
@@ -966,6 +1082,13 @@ canvas.addEventListener('pointermove',e=>{
   G.hover=canvasCell(e);
 });
 canvas.addEventListener('pointerup',e=>{
+  if(G.atlas){
+    const p=atlasPress; atlasPress=null;
+    if(!p||p.id!==e.pointerId||p.moved) return;
+    try{canvas.releasePointerCapture(e.pointerId);}catch(err){}
+    atlasTap(e.clientX,e.clientY);
+    return;
+  }
   if(!drag||drag.id!==e.pointerId) return;
   const d=drag; drag=null;
   try{canvas.releasePointerCapture(e.pointerId);}catch(err){}
@@ -974,17 +1097,23 @@ canvas.addEventListener('pointerup',e=>{
   place(c.x,c.y);
 });
 canvas.addEventListener('pointercancel',e=>{
+  if(G.atlas){ atlasPress=null; return; }
   if(drag&&drag.id===e.pointerId) drag=null;
 });
-canvas.addEventListener('pointerleave',()=>{G.hover=null;});
+canvas.addEventListener('pointerleave',()=>{
+  if(G.atlas){ atlasPointerOut(); return; }
+  G.hover=null;
+});
 
 document.addEventListener('keydown',e=>{
+  if(G.atlas){ atlasKey(e); return; }
   if(G.helpOpen){ if(e.key===' '||e.key==='Escape'||e.key==='?'){e.preventDefault();closeHelp();} return; }
   if(e.key==='1'){setTool('rock');return;}
   if(e.key==='2'){setTool('plank');return;}
   if(e.key==='3'){castLight();return;}
   if(e.key==='4'){setTool('bomb');return;}
   if(e.key==='5'){setTool('sign');return;}
+  if(e.key==='m'||e.key==='M'){openAtlas();return;}
   if(e.key===' '||e.key==='Escape'){e.preventDefault();togglePause();return;}
   if(e.key==='r'||e.key==='R'){clearTimeout(G.overlayTimer);hideOverlay();G.overlayOpen=false;G.paused=false;startLevel(G.levelIndex);return;}
   if(!G.overlayOpen&&G.phase==='playing'){
@@ -999,9 +1128,11 @@ document.addEventListener('keydown',e=>{
 });
 
 document.addEventListener('visibilitychange',()=>{
+  if(G.atlas) return;
   if(document.hidden&&G.phase==='playing'&&!G.paused) togglePause();
 });
 window.addEventListener('blur',()=>{
+  if(G.atlas) return;
   if(G.phase==='playing'&&!G.paused&&!G.overlayOpen) togglePause();
 });
 
@@ -1525,6 +1656,30 @@ function drawChest(px,py,t){
   ctx.beginPath(); ctx.ellipse(cx-6,cy-10+bob,7,2,-.2,0,Math.PI*2); ctx.fill();
 }
 
+/* 地图道具：一卷摊开的羊皮纸，捡走前一直在地上闪。 */
+function drawMapItem(px,py,t){
+  const cx=px+TILE/2, cy=py+TILE/2+Math.sin(t/430+px)*1.6;
+  ctx.fillStyle='rgba(20,30,28,.22)';
+  ctx.beginPath(); ctx.ellipse(cx,py+TILE-10,14,4.6,0,0,Math.PI*2); ctx.fill();
+  const glow=ctx.createRadialGradient(cx,cy,2,cx,cy,24);
+  glow.addColorStop(0,'rgba(246,217,122,.55)'); glow.addColorStop(1,'rgba(246,217,122,0)');
+  ctx.fillStyle=glow; ctx.beginPath(); ctx.arc(cx,cy,24,0,Math.PI*2); ctx.fill();
+  ctx.save();
+  ctx.translate(cx,cy); ctx.rotate(Math.sin(t/700)*.10);
+  fillRR(-13,-14,26,28,4,'#F4E4BE');
+  strokeRR(-13,-14,26,28,4,'#8A6A38',2);
+  fillRR(-16,-17,32,7,3.4,'#B57B44');
+  strokeRR(-16,-17,32,7,3.4,C.ink,1.6);
+  fillRR(-16,10,32,7,3.4,'#B57B44');
+  strokeRR(-16,10,32,7,3.4,C.ink,1.6);
+  /* 纸面上画一条曲折的路线和一个红叉，一眼就能认出是地图。 */
+  ctx.strokeStyle='rgba(94,72,42,.75)'; ctx.lineWidth=1.6; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(-8,-6); ctx.lineTo(-2,-2); ctx.lineTo(-6,3); ctx.lineTo(3,6); ctx.stroke();
+  ctx.strokeStyle='#C9502F'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(3,-7); ctx.lineTo(9,-1); ctx.moveTo(9,-7); ctx.lineTo(3,-1); ctx.stroke();
+  ctx.restore();
+}
+
 const FONT_BODY='"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif';
 
 /* ---------- 场景装饰：同一套迷宫，换主题就换一层地貌 ---------- */
@@ -1747,6 +1902,7 @@ function drawTiles(t){
     if(ch==='d') drawDoor(px,py,G.doorOpen);
     if(ch==='1'||ch==='2') drawPortal(px,py,t,ch);
     if(ch==='t') drawChest(px,py,t);
+    if(ch==='M') drawMapItem(px,py,t);
     if(ch==='S') drawStartPad(px,py);
     if(ch==='E') drawExit(px,py,t);
   }
@@ -1780,22 +1936,29 @@ function drawBubble(t){
   const s=view.scale;
   const bob=Math.sin(t/520)*1.6;
   const cx=clamp((h.vx*TILE+TILE/2)*s-cam.x*s,24,view.w-24);
-  const by=clamp((h.vy*TILE+TILE/2-58+bob)*s-cam.y*s,10,view.h-46);
+  /* 气泡挂在脑袋正上方，尾巴垂直指向头顶。 */
+  const hs=(h.vy*TILE+TILE/2)*s-cam.y*s;
+  const headTop=hs-29*s;
+  const bx=clamp(cx,26,view.w-26);
+  const by=clamp(headTop-34+bob,(G.hudTop||0)+2,view.h-40);
+  const tailTip=hs-20;
   ctx.save();
   screenTransform();
-  ctx.beginPath();
-  ctx.moveTo(cx-5,by+25); ctx.lineTo(cx,by+36); ctx.lineTo(cx+5,by+25);
-  ctx.fillStyle='#FFFCF4'; ctx.fill();
-  ctx.strokeStyle=C.ink; ctx.lineWidth=2.2; ctx.stroke();
-  fillRR(cx-17,by,34,28,13,'#FFFCF4');
-  strokeRR(cx-17,by,34,28,13,C.ink,2.4);
+  if(tailTip>by+26){
+    ctx.beginPath();
+    ctx.moveTo(bx-7,by+26); ctx.lineTo(cx,tailTip); ctx.lineTo(bx+7,by+26);
+    ctx.fillStyle='#FFFCF4'; ctx.fill();
+    ctx.strokeStyle=C.ink; ctx.lineWidth=2.2; ctx.stroke();
+  }
+  fillRR(bx-17,by,34,28,13,'#FFFCF4');
+  strokeRR(bx-17,by,34,28,13,C.ink,2.4);
   ctx.textAlign='center'; ctx.textBaseline='middle';
   if(kind==='?'||kind==='!'){
     ctx.fillStyle=color;
     ctx.font='700 20px '+FONT_BODY;
-    ctx.fillText(kind,cx,by+15);
+    ctx.fillText(kind,bx,by+15);
   }else{
-    drawArrowGlyph(cx,by+14,kind,color);
+    drawArrowGlyph(bx,by+14,kind,color);
   }
   ctx.restore();
 }
@@ -2217,6 +2380,697 @@ function drawMini(){
   g.beginPath();g.arc(G.hero.x*MM+MM/2,G.hero.y*MM+MM/2,3,0,Math.PI*2);g.stroke();
 }
 
+/* ================= 关卡总图 =================
+   开局先落在一张羊皮卷上：八枚地形徽章按序号串成一条路线，
+   点哪枚就从哪一关开始。素材全部用 Canvas 手绘，不依赖外部图库。
+*/
+const boardEl=document.querySelector('.board');
+const FONT_SERIF='"Songti SC","STSong","Noto Serif CJK SC","Source Han Serif SC",Georgia,serif';
+const FONT_MONO='"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace';
+/* 节点摆法：竖屏走蛇形，横屏走对角；坐标是图幅内的归一化值。 */
+const ATLAS_TALL=[[.16,.93],[.47,.83],[.82,.71],[.62,.58],[.24,.45],[.52,.33],[.82,.20],[.45,.07]];
+const ATLAS_WIDE=[[.09,.76],[.20,.66],[.31,.56],[.42,.46],[.53,.36],[.64,.26],[.75,.16],[.88,.07]];
+let atlasGeo=null, atlasPaper=null, atlasPaperKey='', atlasT=0, atlasPress=null;
+
+function atlasCanResume(){ return G.phase==='playing'||G.phase==='ready'; }
+function atlasInvalidate(){ atlasGeo=null; atlasPaper=null; atlasPaperKey=''; }
+
+function atlasLayout(){
+  const w=view.w, h=view.h;
+  const key=Math.round(w)+'x'+Math.round(h)+':'+(atlasCanResume()?1:0);
+  if(atlasGeo&&atlasGeo.key===key) return atlasGeo;
+  const pad=clamp(Math.min(w,h)*.045,12,22);
+  const sheet={x:pad,y:pad,w:w-pad*2,h:h-pad*2};
+  const headerH=clamp(h*.12,66,92);
+  const footerH=clamp(h*.155,68,112);
+  const inner={x:sheet.x+16,y:sheet.y+headerH,w:sheet.w-32,h:sheet.h-headerH-footerH};
+  const wide=w/h>.82;
+  const r=wide?clamp(Math.min(inner.w*.047,inner.h*.115),13,23)
+              :clamp(Math.min(inner.w*.072,inner.h*.052),14,28);
+  const pts=(wide?ATLAS_WIDE:ATLAS_TALL).slice(0,LEVELS.length);
+  const nodes=pts.map(p=>({x:inner.x+p[0]*inner.w,y:inner.y+p[1]*inner.h,r}));
+  const curve=atlasCurve(nodes);
+  const foot={x:sheet.x+14,y:sheet.y+sheet.h-footerH+4,w:sheet.w-28,h:footerH-20};
+  const chip=atlasCanResume()?{x:sheet.x+sheet.w-106,y:sheet.y+15,w:90,h:27}:null;
+  atlasGeo={key,w,h,sheet,inner,headerH,footerH,r,nodes,curve,foot,chip,wide};
+  return atlasGeo;
+}
+
+/* Catmull-Rom 采样：路线要像用毛笔画出来的，不能是一段段直线。 */
+function atlasCurve(pts){
+  if(!pts.length) return [];
+  if(pts.length===1) return [{x:pts[0].x,y:pts[0].y}];
+  const out=[];
+  for(let i=0;i<pts.length-1;i++){
+    const p0=pts[Math.max(0,i-1)], p1=pts[i], p2=pts[i+1], p3=pts[Math.min(pts.length-1,i+2)];
+    for(let j=0;j<16;j++){
+      const u=j/16, u2=u*u, u3=u2*u;
+      out.push({
+        x:.5*(2*p1.x+(-p0.x+p2.x)*u+(2*p0.x-5*p1.x+4*p2.x-p3.x)*u2+(-p0.x+3*p1.x-3*p2.x+p3.x)*u3),
+        y:.5*(2*p1.y+(-p0.y+p2.y)*u+(2*p0.y-5*p1.y+4*p2.y-p3.y)*u2+(-p0.y+3*p1.y-3*p2.y+p3.y)*u3)
+      });
+    }
+  }
+  out.push({x:pts[pts.length-1].x,y:pts[pts.length-1].y});
+  return out;
+}
+
+function openAtlas(){
+  clearTimeout(G.overlayTimer);
+  hideOverlay();
+  G.overlayOpen=false;
+  G.atlas=true;
+  G.atlasCursor=null;
+  G.atlasHoverAt=performance.now();
+  G.atlasLeaving=null;
+  atlasPress=null;
+  atlasT=performance.now();
+  atlasInvalidate();
+  if(boardEl) boardEl.classList.add('atlas');
+  canvas.style.cursor='default';
+  if(el.follow) el.follow.hidden=true;
+  drag=null;
+}
+function exitAtlas(){
+  if(!G.atlas&&!boardEl.classList.contains('atlas')) return;
+  G.atlas=false; G.atlasLeaving=null; G.atlasCursor=null; atlasPress=null;
+  if(boardEl) boardEl.classList.remove('atlas');
+  canvas.style.cursor='crosshair';
+  drag=null;
+}
+function resumeFromAtlas(){
+  if(!atlasCanResume()) return;
+  const wasReady=G.phase==='ready';
+  exitAtlas();
+  measure();
+  G.overlayOpen=false; clearTimeout(G.overlayTimer);
+  if(wasReady) beginPlay();
+  else hideOverlay();
+  updateTools(); updateHud(); followCam(0,true);
+}
+
+function atlasChoose(i){
+  if(G.atlasLeaving||!LEVELS[i]) return;
+  G.atlasLeaving={i,at:performance.now()};
+  G.atlasCursor=i;
+  setTimeout(()=>{ if(G.atlas) startLevel(i); },260);
+}
+
+function atlasPoint(cx,cy){
+  const r=canvas.getBoundingClientRect();
+  return {x:(cx-r.left)/Math.max(1,r.width)*view.w,y:(cy-r.top)/Math.max(1,r.height)*view.h};
+}
+function atlasHit(cx,cy){
+  const geo=atlasLayout(), p=atlasPoint(cx,cy);
+  if(geo.chip&&p.x>=geo.chip.x&&p.x<=geo.chip.x+geo.chip.w&&p.y>=geo.chip.y&&p.y<=geo.chip.y+geo.chip.h) return {kind:'resume'};
+  for(let i=0;i<geo.nodes.length;i++){
+    const n=geo.nodes[i];
+    if(Math.hypot(p.x-n.x,p.y-n.y)<=n.r+7) return {kind:'node',i};
+  }
+  return null;
+}
+function atlasPointerMove(cx,cy){
+  if(G.atlasLeaving) return;
+  const hit=atlasHit(cx,cy);
+  const idx=hit&&hit.kind==='node'?hit.i:null;
+  if(idx!==G.atlasCursor){ G.atlasCursor=idx; G.atlasHoverAt=performance.now(); }
+  canvas.style.cursor=hit?'pointer':'default';
+}
+function atlasPointerOut(){
+  if(G.atlasLeaving) return;
+  if(G.atlasCursor!==null){ G.atlasCursor=null; canvas.style.cursor='default'; }
+}
+function atlasTap(cx,cy){
+  if(G.atlasLeaving) return;
+  const hit=atlasHit(cx,cy);
+  if(!hit) return;
+  if(hit.kind==='resume') resumeFromAtlas();
+  else atlasChoose(hit.i);
+}
+function atlasKey(e){
+  if(G.atlasLeaving){ e.preventDefault(); return; }
+  if(e.key==='Escape'||e.key==='m'||e.key==='M'){ e.preventDefault(); resumeFromAtlas(); return; }
+  if(e.key==='ArrowRight'||e.key==='ArrowDown'||e.key==='ArrowLeft'||e.key==='ArrowUp'){
+    e.preventDefault();
+    const step=(e.key==='ArrowRight'||e.key==='ArrowDown')?1:-1;
+    const cur=G.atlasCursor==null?0:G.atlasCursor;
+    G.atlasCursor=clamp(cur+step,0,LEVELS.length-1);
+    G.atlasHoverAt=performance.now();
+    return;
+  }
+  if(e.key==='Enter'){
+    e.preventDefault();
+    atlasChoose(G.atlasCursor==null?0:G.atlasCursor);
+  }
+}
+
+/* 羊皮卷底色、经纬网、纤维与等高线只画一次，之后每帧只叠动态层。 */
+function buildAtlasPaper(geo){
+  const key=Math.round(view.w)+'x'+Math.round(view.h);
+  if(atlasPaper&&atlasPaperKey===key) return;
+  const c=document.createElement('canvas');
+  c.width=Math.max(1,Math.round(view.w*dpr));
+  c.height=Math.max(1,Math.round(view.h*dpr));
+  const g=c.getContext('2d');
+  g.setTransform(dpr,0,0,dpr,0,0);
+  const S=geo.sheet, W=view.w, H=view.h;
+  const pathRR=(x,y,w,h,r)=>{
+    const rad=Math.max(0,Math.min(r,w/2,h/2));
+    g.beginPath();
+    g.moveTo(x+rad,y); g.lineTo(x+w-rad,y); g.arcTo(x+w,y,x+w,y+rad,rad);
+    g.lineTo(x+w,y+h-rad); g.arcTo(x+w,y+h,x+w-rad,y+h,rad);
+    g.lineTo(x+rad,y+h); g.arcTo(x,y+h,x,y+h-rad,rad);
+    g.lineTo(x,y+rad); g.arcTo(x,y,x+rad,y,rad); g.closePath();
+  };
+
+  /* 桌面：深松绿，把纸卷托起来 */
+  const bg=g.createRadialGradient(W*.5,H*.34,Math.min(W,H)*.16,W*.5,H*.5,Math.max(W,H)*.72);
+  bg.addColorStop(0,'#16302A'); bg.addColorStop(1,'#071210');
+  g.fillStyle=bg; g.fillRect(0,0,W,H);
+
+  g.save();
+  g.shadowColor='rgba(2,8,6,.7)'; g.shadowBlur=30; g.shadowOffsetY=14;
+  g.fillStyle='#D9C49B'; pathRR(S.x,S.y,S.w,S.h,18); g.fill();
+  g.restore();
+  const pg=g.createLinearGradient(S.x,S.y,S.x+S.w*.55,S.y+S.h*.9);
+  pg.addColorStop(0,'#FAF1DD'); pg.addColorStop(.45,'#F0E3C6'); pg.addColorStop(1,'#DDC79C');
+  g.fillStyle=pg; pathRR(S.x,S.y,S.w,S.h,18); g.fill();
+
+  g.save(); pathRR(S.x,S.y,S.w,S.h,18); g.clip();
+  const hl=g.createRadialGradient(S.x+S.w*.22,S.y+S.h*.14,0,S.x+S.w*.22,S.y+S.h*.14,Math.max(S.w,S.h)*1.06);
+  hl.addColorStop(0,'rgba(255,253,244,.5)'); hl.addColorStop(.72,'rgba(255,250,232,.06)'); hl.addColorStop(1,'rgba(116,88,44,.16)');
+  g.fillStyle=hl; g.fillRect(S.x,S.y,S.w,S.h);
+
+  /* 经纬网 */
+  g.strokeStyle='rgba(74,86,62,.05)'; g.lineWidth=1;
+  for(let x=S.x+13;x<S.x+S.w;x+=26){
+    g.beginPath(); g.moveTo(Math.round(x)+.5,S.y); g.lineTo(Math.round(x)+.5,S.y+S.h); g.stroke();
+  }
+  for(let y=S.y+13;y<S.y+S.h;y+=26){
+    g.beginPath(); g.moveTo(S.x,Math.round(y)+.5); g.lineTo(S.x+S.w,Math.round(y)+.5); g.stroke();
+  }
+
+  /* 纸纤维与斑点 */
+  for(let i=0;i<54;i++){
+    const x=S.x+Math.random()*S.w, y=S.y+Math.random()*S.h, a=Math.random()*Math.PI, len=8+Math.random()*26;
+    g.strokeStyle='rgba(108,84,46,'+(.018+Math.random()*.028)+')'; g.lineWidth=1;
+    g.beginPath(); g.moveTo(x,y); g.lineTo(x+Math.cos(a)*len,y+Math.sin(a)*len); g.stroke();
+  }
+  for(let i=0;i<1100;i++){
+    g.fillStyle='rgba(92,72,40,'+(.012+Math.random()*.045)+')';
+    g.fillRect(S.x+Math.random()*S.w,S.y+Math.random()*S.h,1.1,1.1);
+  }
+
+  /* 等高线：几圈不规则的墨迹，让纸面像旧地图 */
+  const blob=(cx,cy,rx,ry,seed,alpha)=>{
+    g.strokeStyle='rgba(70,84,60,'+alpha+')'; g.lineWidth=1;
+    for(let k=0;k<3;k++){
+      g.beginPath();
+      const sc=1+k*.26;
+      for(let a=0;a<=Math.PI*2+.01;a+=.2){
+        const m=1+.13*Math.sin(a*3+seed+k*.9)+.07*Math.sin(a*5-seed*2);
+        const x=cx+Math.cos(a)*rx*sc*m, y=cy+Math.sin(a)*ry*sc*m;
+        if(a===0) g.moveTo(x,y); else g.lineTo(x,y);
+      }
+      g.closePath(); g.stroke();
+    }
+  };
+  blob(S.x+S.w*.70,S.y+S.h*.30,S.w*.24,S.h*.12,1.2,.05);
+  blob(S.x+S.w*.20,S.y+S.h*.66,S.w*.20,S.h*.10,3.6,.045);
+  blob(S.x+S.w*.56,S.y+S.h*.92,S.w*.16,S.h*.07,5.1,.04);
+
+  /* 折痕 */
+  g.strokeStyle='rgba(96,74,40,.06)'; g.lineWidth=1.5;
+  for(const fx of [.34,.66]){
+    const xx=S.x+S.w*fx;
+    g.beginPath(); g.moveTo(xx,S.y+6); g.lineTo(xx+2,S.y+S.h*.5); g.lineTo(xx,S.y+S.h-6); g.stroke();
+  }
+  g.restore();
+
+  /* 纸边压暗（外向内六层） */
+  for(let i=0;i<6;i++){
+    g.strokeStyle='rgba(107,84,46,'+(.05-i*.007)+')'; g.lineWidth=2;
+    pathRR(S.x+i*2,S.y+i*2,S.w-i*4,S.h-i*4,14); g.stroke();
+  }
+  /* 双线边框 + 四角小菱形 */
+  g.strokeStyle='rgba(64,78,58,.30)'; g.lineWidth=1;
+  pathRR(S.x+9,S.y+9,S.w-18,S.h-18,12); g.stroke();
+  g.strokeStyle='rgba(64,78,58,.13)';
+  pathRR(S.x+13,S.y+13,S.w-26,S.h-26,10); g.stroke();
+  for(const px of [S.x+9,S.x+S.w-9]){
+    for(const py of [S.y+9,S.y+S.h-9]){
+      g.save(); g.translate(px,py); g.rotate(Math.PI/4);
+      g.fillStyle='rgba(178,130,52,.5)'; g.fillRect(-2.6,-2.6,5.2,5.2); g.restore();
+    }
+  }
+
+  /* 抬头 */
+  const hx=S.x+22, tpx=clamp(geo.headerH*.42,19,30);
+  g.textAlign='left'; g.textBaseline='alphabetic';
+  g.fillStyle='rgba(56,72,58,.78)';
+  g.font='600 7.5px '+FONT_MONO;
+  tracked(g,'THE APPRENTICE · ATLAS',hx,S.y+geo.headerH*.27,1.7);
+  g.fillStyle='#1C2E27';
+  g.font='700 '+tpx+'px '+FONT_SERIF;
+  g.fillText('见习之路',hx,S.y+geo.headerH*.30+tpx*1.02);
+
+  const ry=S.y+geo.headerH-9;
+  const rl=g.createLinearGradient(hx,0,S.x+S.w-22,0);
+  rl.addColorStop(0,'rgba(178,130,52,.72)'); rl.addColorStop(1,'rgba(178,130,52,0)');
+  g.fillStyle=rl; g.fillRect(hx,ry,S.x+S.w-22-hx,1.4);
+  g.save(); g.translate(hx+2,ry+.7); g.rotate(Math.PI/4);
+  g.fillStyle='rgba(178,130,52,.9)'; g.fillRect(-2.4,-2.4,4.8,4.8); g.restore();
+
+  if(!geo.chip){
+    g.textAlign='right'; g.textBaseline='alphabetic';
+    g.font='600 10px '+FONT_SERIF; g.fillStyle='rgba(52,68,58,.8)';
+    g.fillText('共 '+LEVELS.length+' 境',S.x+S.w-24,S.y+geo.headerH*.30+tpx*1.02);
+    g.font='600 7px '+FONT_MONO; g.fillStyle='rgba(56,72,58,.55)';
+    trackedR(g,'ATLAS · VIII',S.x+S.w-24,S.y+geo.headerH*.27,1.4);
+  }
+
+  /* 指北针：放在右下角空白处 */
+  const ccx=geo.inner.x+geo.inner.w*.93, ccy=geo.inner.y+geo.inner.h*.962;
+  const cr=clamp(Math.min(geo.inner.w,geo.inner.h)*.055,10,20);
+  g.save(); g.translate(ccx,ccy);
+  g.strokeStyle='rgba(56,70,54,.32)'; g.lineWidth=1;
+  g.beginPath(); g.arc(0,0,cr,0,Math.PI*2); g.stroke();
+  g.beginPath(); g.arc(0,0,cr*.7,0,Math.PI*2); g.stroke();
+  g.fillStyle='rgba(46,60,46,.5)';
+  g.beginPath(); g.moveTo(0,-cr*.92); g.lineTo(cr*.17,0); g.lineTo(0,cr*.92); g.lineTo(-cr*.17,0); g.closePath(); g.fill();
+  g.fillStyle='rgba(180,132,58,.78)';
+  g.beginPath(); g.moveTo(-cr*.92,0); g.lineTo(0,cr*.17); g.lineTo(cr*.92,0); g.lineTo(0,-cr*.17); g.closePath(); g.fill();
+  g.fillStyle='rgba(56,70,54,.5)'; g.font='600 6px '+FONT_MONO;
+  g.textAlign='center'; g.textBaseline='middle'; g.fillText('N',0,-cr-5);
+  g.restore();
+
+  /* 底部说明牌 */
+  const F=geo.foot;
+  g.fillStyle='rgba(252,246,231,.68)'; pathRR(F.x,F.y,F.w,F.h,10); g.fill();
+  g.strokeStyle='rgba(64,78,58,.24)'; g.lineWidth=1; pathRR(F.x,F.y,F.w,F.h,10); g.stroke();
+  g.fillStyle='rgba(178,130,52,.82)'; g.fillRect(F.x+11,F.y+12,2,Math.max(4,F.h-24));
+
+  atlasPaper=c; atlasPaperKey=key;
+}
+
+function tracked(g,text,x,y,sp){
+  const chars=Array.from(text);
+  g.textAlign='left';
+  let cx=x;
+  for(const ch of chars){ g.fillText(ch,cx,y); cx+=g.measureText(ch).width+sp; }
+}
+function trackedR(g,text,x,y,sp){
+  const chars=Array.from(text);
+  g.textAlign='left';
+  let total=0;
+  for(const ch of chars) total+=g.measureText(ch).width+sp;
+  let cx=x-total+sp;
+  for(const ch of chars){ g.fillText(ch,cx,y); cx+=g.measureText(ch).width+sp; }
+}
+function clipText(text,maxW){
+  if(ctx.measureText(text).width<=maxW) return text;
+  let s=text;
+  while(s.length>1&&ctx.measureText(s+'…').width>maxW) s=s.slice(0,-1);
+  return s+'…';
+}
+
+function drawAtlas(now){
+  screenTransform();
+  ctx.clearRect(0,0,view.w,view.h);
+  ctx.fillStyle='#081411'; ctx.fillRect(0,0,view.w,view.h);
+  const geo=atlasLayout();
+  buildAtlasPaper(geo);
+  const enter=clamp((now-atlasT)/460,0,1);
+  ctx.save();
+  ctx.globalAlpha=.22+.78*easeOut(enter);
+  if(atlasPaper) ctx.drawImage(atlasPaper,0,0,view.w,view.h);
+  drawAtlasDust(geo,now);
+  drawAtlasRoute(geo,now);
+  for(let i=0;i<geo.nodes.length;i++) drawAtlasNode(geo,i,now);
+  drawAtlasFooter(geo);
+  drawAtlasChip(geo);
+  if(G.atlasLeaving) drawAtlasLeaving(geo,now);
+  ctx.restore();
+}
+
+function drawAtlasDust(geo,now){
+  const S=geo.sheet;
+  for(let i=0;i<16;i++){
+    const px=S.x+((i*137.5)%100)/100*S.w+Math.sin(now/2600+i)*6;
+    const py=S.y+((i*61.7)%100)/100*S.h+Math.cos(now/3100+i*1.7)*5;
+    const a=.10+.13*(.5+.5*Math.sin(now/900+i*2.1));
+    ctx.fillStyle='rgba(255,244,205,'+a+')';
+    ctx.beginPath(); ctx.arc(px,py,.8+(i%3)*.5,0,Math.PI*2); ctx.fill();
+  }
+}
+
+function drawAtlasRoute(geo,now){
+  const pts=geo.curve;
+  if(!pts.length) return;
+  const stroke=(col,lw,dash,from,to)=>{
+    ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
+    ctx.strokeStyle=col; ctx.lineWidth=lw;
+    if(dash) ctx.setLineDash(dash);
+    ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y);
+    for(let i=1;i<to;i++) ctx.lineTo(pts[i].x,pts[i].y);
+    ctx.stroke(); ctx.restore();
+  };
+  const r=geo.r;
+  stroke('rgba(255,251,238,.78)',Math.max(6,r*.34),null,0,pts.length);
+  stroke('rgba(176,148,96,.42)',Math.max(3,r*.17),null,0,pts.length);
+  const maxCleared=[...G.cleared].reduce((a,b)=>Math.max(a,b),-1);
+  if(maxCleared>=1){
+    stroke('rgba(190,138,50,.5)',Math.max(2.4,r*.10),null,0,Math.min(pts.length-1,maxCleared*16+8));
+  }
+  ctx.save();
+  ctx.strokeStyle='rgba(180,128,44,.85)'; ctx.lineWidth=1.4; ctx.lineCap='round';
+  ctx.setLineDash([6,8]); ctx.lineDashOffset=-now/28;
+  ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y);
+  for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x,pts[i].y);
+  ctx.stroke();
+  ctx.restore();
+  const u=(now/34000)%1;
+  const p=pts[Math.min(pts.length-1,Math.floor(u*(pts.length-1)))];
+  const gl=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,r*.95);
+  gl.addColorStop(0,'rgba(255,236,178,.9)'); gl.addColorStop(1,'rgba(255,214,120,0)');
+  ctx.fillStyle=gl; ctx.beginPath(); ctx.arc(p.x,p.y,r*.95,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#FFF3CE'; ctx.beginPath(); ctx.arc(p.x,p.y,1.7,0,Math.PI*2); ctx.fill();
+}
+
+function drawAtlasNode(geo,i,now){
+  const n=geo.nodes[i];
+  const themeKey=(LEVELS[i]&&LEVELS[i].theme)||'forest';
+  const th=(window.THEMES||{})[themeKey]||{};
+  const hover=G.atlasCursor===i&&!G.atlasLeaving;
+  const hov=hover?clamp((now-(G.atlasHoverAt||now))/200,0,1):0;
+  const R=n.r*(1+.055*hov);
+  ctx.save();
+  ctx.translate(n.x,n.y);
+
+  ctx.fillStyle='rgba(40,30,14,.22)';
+  ctx.beginPath(); ctx.ellipse(0,R*1.02,R*.86,R*.24,0,0,Math.PI*2); ctx.fill();
+  if(hov>0){
+    const gg=ctx.createRadialGradient(0,0,R*.7,0,0,R*2);
+    gg.addColorStop(0,'rgba(244,204,124,'+(.40*hov)+')'); gg.addColorStop(1,'rgba(244,204,124,0)');
+    ctx.fillStyle=gg; ctx.beginPath(); ctx.arc(0,0,R*2,0,Math.PI*2); ctx.fill();
+  }
+  ctx.fillStyle='#1B2A24';
+  ctx.beginPath(); ctx.arc(0,0,R,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle=hover?'#D3A04B':'rgba(24,38,32,.85)';
+  ctx.lineWidth=hover?2.6:1.8;
+  ctx.beginPath(); ctx.arc(0,0,R-1.4,0,Math.PI*2); ctx.stroke();
+  ctx.fillStyle='#F5EACD';
+  ctx.beginPath(); ctx.arc(0,0,R-3.6,0,Math.PI*2); ctx.fill();
+
+  const IR=R-6.4;
+  if(IR>4){
+    ctx.save();
+    ctx.beginPath(); ctx.arc(0,0,IR,0,Math.PI*2); ctx.clip();
+    atlasEmblem(themeKey,IR);
+    const sh=ctx.createRadialGradient(0,-IR*.2,IR*.25,0,0,IR*1.02);
+    sh.addColorStop(0,'rgba(8,18,14,0)'); sh.addColorStop(1,'rgba(8,18,14,.4)');
+    ctx.fillStyle=sh; ctx.fillRect(-IR,-IR,IR*2,IR*2);
+    ctx.restore();
+    ctx.strokeStyle='rgba(196,146,66,.85)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.arc(0,0,IR+.6,0,Math.PI*2); ctx.stroke();
+  }
+
+  /* 编号：像盖在图上的一枚小铜章 */
+  const sr=Math.max(7,R*.30);
+  ctx.save();
+  ctx.translate(-R*.70,-R*.70);
+  ctx.fillStyle='#C79A4C';
+  ctx.beginPath(); ctx.arc(0,0,sr,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='rgba(24,38,32,.75)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.arc(0,0,sr,0,Math.PI*2); ctx.stroke();
+  ctx.fillStyle='#1F2A1C';
+  ctx.font='700 '+Math.max(7,sr*.95)+'px '+FONT_MONO;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(String(i+1).padStart(2,'0'),0,sr*.05);
+  ctx.restore();
+
+  if(G.cleared.has(i)){
+    star(R*.74,-R*.74,R*.22,'rgba(214,160,66,.95)');
+    star(R*.74,-R*.74,R*.10,'rgba(255,240,196,.95)');
+  }
+  ctx.restore();
+
+  /* 地形名压在纸面上 */
+  const label=(th.label||'').slice(0,3);
+  const fs=Math.max(9,Math.round(R*.40));
+  ctx.save();
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  ctx.font='600 '+fs+'px '+FONT_SERIF;
+  const tw=ctx.measureText(label).width+9;
+  fillRR(n.x-tw/2,n.y+R+6,tw,fs+7,6,'rgba(248,240,219,.72)');
+  ctx.fillStyle=hover?'#8A5C12':'rgba(30,46,38,.92)';
+  ctx.fillText(label,n.x,n.y+R+9);
+  ctx.restore();
+}
+
+function drawAtlasFooter(geo){
+  const F=geo.foot;
+  const idx=G.atlasCursor!=null?Math.min(G.atlasCursor,LEVELS.length-1):-1;
+  const L=idx>=0?LEVELS[idx]:null;
+  ctx.save();
+  ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+  const tx=F.x+22;
+  ctx.fillStyle='#1E302A';
+  ctx.font='700 13px '+FONT_SERIF;
+  ctx.fillText(clipText(L?L.name:'从第一境开始',F.w-(L?122:52)),tx,F.y+F.h*.40);
+  ctx.fillStyle='rgba(52,70,60,.86)';
+  ctx.font='400 11px '+FONT_SERIF;
+  ctx.fillText(clipText(L?L.target:'八境相连，点一枚徽章，把勇者放进那一关。',F.w-42),tx,F.y+F.h*.76);
+  if(L){
+    ctx.textAlign='right';
+    ctx.fillStyle='rgba(150,104,34,.9)';
+    ctx.font='600 8px '+FONT_MONO;
+    ctx.fillText(String(idx+1).padStart(2,'0')+' / '+String(LEVELS.length).padStart(2,'0'),F.x+F.w-14,F.y+F.h*.40);
+    ctx.fillStyle='rgba(150,104,34,.78)';
+    ctx.font='600 8.5px '+FONT_SERIF;
+    ctx.fillText('点击启程',F.x+F.w-14,F.y+F.h*.76);
+  }
+  ctx.restore();
+}
+
+function drawAtlasChip(geo){
+  const c=geo.chip;
+  if(!c) return;
+  ctx.save();
+  fillRR(c.x,c.y,c.w,c.h,9,'rgba(252,245,228,.94)');
+  strokeRR(c.x,c.y,c.w,c.h,9,'rgba(66,80,58,.35)',1);
+  ctx.fillStyle='#243A30';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.font='600 10px '+FONT_SERIF;
+  ctx.fillText('继续本关',c.x+c.w/2+7,c.y+c.h/2+1);
+  ctx.strokeStyle='rgba(160,112,40,.9)'; ctx.lineWidth=1.4; ctx.lineCap='round';
+  ctx.beginPath();
+  ctx.moveTo(c.x+13,c.y+c.h/2); ctx.lineTo(c.x+20,c.y+c.h/2);
+  ctx.lineTo(c.x+17.2,c.y+c.h/2-2.8);
+  ctx.moveTo(c.x+20,c.y+c.h/2); ctx.lineTo(c.x+17.2,c.y+c.h/2+2.8);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawAtlasLeaving(geo,now){
+  const lv=G.atlasLeaving, n=geo.nodes[lv.i];
+  if(!n) return;
+  const p=clamp((now-lv.at)/260,0,1);
+  ctx.save();
+  ctx.strokeStyle='rgba(212,168,88,'+(.9*(1-p))+')'; ctx.lineWidth=2.4;
+  ctx.beginPath(); ctx.arc(n.x,n.y,n.r*(1+p*.95),0,Math.PI*2); ctx.stroke();
+  ctx.fillStyle='rgba(255,240,200,'+(.35*(1-p))+')';
+  ctx.beginPath(); ctx.arc(n.x,n.y,n.r*(1+p*.3),0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+/* ---------- 八种地形小徽章：都画在 [-R,R] 的圆形裁切里 ---------- */
+function atlasPine(x,by,h,w,col,cap){
+  ctx.fillStyle='rgba(8,20,13,.85)';
+  ctx.fillRect(x-w*.08,by-h*.30,w*.16,h*.30);
+  ctx.fillStyle=col;
+  ctx.beginPath();
+  ctx.moveTo(x,by-h);
+  ctx.lineTo(x+w*.62,by-h*.30);
+  ctx.lineTo(x+w,by);
+  ctx.lineTo(x-w,by);
+  ctx.lineTo(x-w*.62,by-h*.30);
+  ctx.closePath(); ctx.fill();
+  if(cap){
+    ctx.fillStyle=cap;
+    ctx.beginPath();
+    ctx.moveTo(x,by-h);
+    ctx.lineTo(x+w*.30,by-h*.60);
+    ctx.lineTo(x-w*.30,by-h*.60);
+    ctx.closePath(); ctx.fill();
+  }
+}
+function atlasEmblem(key,R){
+  const bg=ctx.createLinearGradient(0,-R,0,R);
+  if(key==='forest'){
+    bg.addColorStop(0,'#6EA97A'); bg.addColorStop(.48,'#2E6440'); bg.addColorStop(1,'#0F2618');
+    ctx.fillStyle=bg; ctx.fillRect(-R,-R,R*2,R*2);
+    ctx.fillStyle='rgba(16,44,28,.75)';
+    ctx.beginPath(); ctx.moveTo(-R,R*.36);
+    ctx.quadraticCurveTo(-R*.35,R*.02,R*.06,R*.30);
+    ctx.quadraticCurveTo(R*.5,R*.08,R,R*.38);
+    ctx.lineTo(R,R); ctx.lineTo(-R,R); ctx.closePath(); ctx.fill();
+    atlasPine(-R*.44,R*.72,R*.80,R*.28,'#0D2718','#86C095');
+    atlasPine(R*.02,R*.82,R*1.02,R*.32,'#0A2115','#9AD0A6');
+    atlasPine(R*.46,R*.70,R*.72,R*.24,'#123322','#75B084');
+    ctx.strokeStyle='rgba(245,230,190,.6)'; ctx.lineWidth=Math.max(1.2,R*.06);
+    ctx.beginPath(); ctx.moveTo(-R*.55,R*1.02);
+    ctx.quadraticCurveTo(-R*.15,R*.74,R*.6,R*.94); ctx.stroke();
+  }
+  else if(key==='cave'){
+    bg.addColorStop(0,'#5A6E78'); bg.addColorStop(.5,'#232F36'); bg.addColorStop(1,'#0A1214');
+    ctx.fillStyle=bg; ctx.fillRect(-R,-R,R*2,R*2);
+    ctx.fillStyle='#2A363D';
+    ctx.beginPath(); ctx.moveTo(-R,R); ctx.lineTo(-R,-R*.18);
+    ctx.quadraticCurveTo(-R*.5,-R*1.02,R*.02,-R*1.0);
+    ctx.quadraticCurveTo(R*.55,-R*.98,R,-R*.16);
+    ctx.lineTo(R,R); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#050B0E';
+    ctx.beginPath(); ctx.moveTo(-R*.64,R); ctx.lineTo(-R*.64,-R*.04);
+    ctx.quadraticCurveTo(0,-R*.66,R*.64,-R*.04);
+    ctx.lineTo(R*.64,R); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#6FB3BE';
+    ctx.beginPath(); ctx.ellipse(0,R*.68,R*.5,R*.15,0,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='rgba(210,244,246,.7)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(-R*.34,R*.62); ctx.quadraticCurveTo(0,R*.55,R*.34,R*.62); ctx.stroke();
+    ctx.fillStyle='#4C5E66';
+    for(let i=0;i<3;i++){
+      const sx=-R*.4+i*R*.4;
+      ctx.beginPath(); ctx.moveTo(sx,-R*.58); ctx.lineTo(sx+R*.10,-R*.18); ctx.lineTo(sx-R*.10,-R*.18); ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle='rgba(120,196,180,.22)';
+    ctx.beginPath(); ctx.arc(-R*.24,-R*.36,R*.13,0,Math.PI*2); ctx.fill();
+  }
+  else if(key==='wasteland'){
+    bg.addColorStop(0,'#A98B62'); bg.addColorStop(.55,'#5C4A32'); bg.addColorStop(1,'#241C12');
+    ctx.fillStyle=bg; ctx.fillRect(-R,-R,R*2,R*2);
+    ctx.fillStyle='rgba(240,216,160,.9)';
+    ctx.beginPath(); ctx.arc(-R*.34,-R*.44,R*.15,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#3B2E1E';
+    ctx.beginPath(); ctx.moveTo(-R,R*.22);
+    ctx.quadraticCurveTo(-R*.4,R*.10,R*.06,R*.26);
+    ctx.quadraticCurveTo(R*.5,R*.12,R,R*.28);
+    ctx.lineTo(R,R); ctx.lineTo(-R,R); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#6B563C';
+    ctx.fillRect(-R*.62,R*.02,R*.22,R*.62);
+    ctx.fillRect(R*.34,-R*.06,R*.20,R*.70);
+    ctx.fillStyle='#8B7350';
+    ctx.fillRect(-R*.66,R*.02,R*.30,R*.10);
+    ctx.fillRect(R*.30,-R*.06,R*.28,R*.10);
+    ctx.strokeStyle='rgba(198,176,136,.55)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(-R*.5,R*.64); ctx.lineTo(-R*.2,R*.56); ctx.lineTo(R*.02,R*.68); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(R*.24,R*.58); ctx.lineTo(R*.48,R*.50); ctx.stroke();
+  }
+  else if(key==='desert'){
+    bg.addColorStop(0,'#D3A263'); bg.addColorStop(.5,'#A97A46'); bg.addColorStop(1,'#463218');
+    ctx.fillStyle=bg; ctx.fillRect(-R,-R,R*2,R*2);
+    ctx.fillStyle='rgba(255,232,178,.95)';
+    ctx.beginPath(); ctx.arc(-R*.28,-R*.42,R*.16,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='rgba(255,238,190,.5)'; ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.arc(-R*.28,-R*.42,R*.28,0,Math.PI*2); ctx.stroke();
+    ctx.fillStyle='#C9A468';
+    ctx.beginPath(); ctx.moveTo(-R,R*.42);
+    ctx.quadraticCurveTo(-R*.3,R*.06,R*.16,R*.34);
+    ctx.quadraticCurveTo(R*.6,R*.58,R,R*.30);
+    ctx.lineTo(R,R); ctx.lineTo(-R,R); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#EBD3A2';
+    ctx.beginPath(); ctx.moveTo(-R,R*.72);
+    ctx.quadraticCurveTo(-R*.2,R*.42,R*.34,R*.68);
+    ctx.quadraticCurveTo(R*.68,R*.82,R,R*.66);
+    ctx.lineTo(R,R); ctx.lineTo(-R,R); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='rgba(140,100,52,.4)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(-R*.5,R*.86); ctx.quadraticCurveTo(0,R*.78,R*.5,R*.88); ctx.stroke();
+  }
+  else if(key==='lava'){
+    bg.addColorStop(0,'#7A2C17'); bg.addColorStop(.5,'#43160D'); bg.addColorStop(1,'#1B0906');
+    ctx.fillStyle=bg; ctx.fillRect(-R,-R,R*2,R*2);
+    ctx.fillStyle='#2B1108';
+    ctx.beginPath(); ctx.moveTo(-R,R*.10); ctx.lineTo(-R*.18,-R*.56);
+    ctx.lineTo(R*.18,-R*.56); ctx.lineTo(R,R*.10);
+    ctx.lineTo(R,R); ctx.lineTo(-R,R); ctx.closePath(); ctx.fill();
+    const cr=ctx.createRadialGradient(0,-R*.1,0,0,-R*.1,R*.5);
+    cr.addColorStop(0,'rgba(255,150,70,.7)'); cr.addColorStop(1,'rgba(255,120,40,0)');
+    ctx.fillStyle=cr; ctx.beginPath(); ctx.arc(0,-R*.1,R*.5,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#FF8A3C'; ctx.lineWidth=Math.max(2,R*.16); ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(-R*.04,-R*.42);
+    ctx.quadraticCurveTo(R*.3,-R*.05,R*.12,R*.34);
+    ctx.quadraticCurveTo(-R*.08,R*.66,R*.5,R*.96); ctx.stroke();
+    ctx.fillStyle='rgba(255,214,140,.9)';
+    for(let i=0;i<4;i++){
+      ctx.beginPath(); ctx.arc(-R*.4+i*R*.28,-R*.2+((i%2)?R*.12:0),1.2,0,Math.PI*2); ctx.fill();
+    }
+  }
+  else if(key==='snow'){
+    bg.addColorStop(0,'#B7CED8'); bg.addColorStop(.5,'#64818F'); bg.addColorStop(1,'#20323C');
+    ctx.fillStyle=bg; ctx.fillRect(-R,-R,R*2,R*2);
+    ctx.fillStyle='rgba(234,246,255,.85)';
+    ctx.beginPath(); ctx.arc(-R*.3,-R*.5,R*.14,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#E7F2F4';
+    ctx.beginPath(); ctx.moveTo(-R,R*.32);
+    ctx.quadraticCurveTo(-R*.3,R*.10,R*.10,R*.30);
+    ctx.quadraticCurveTo(R*.55,R*.10,R,R*.34);
+    ctx.lineTo(R,R); ctx.lineTo(-R,R); ctx.closePath(); ctx.fill();
+    atlasPine(-R*.42,R*.54,R*.70,R*.24,'#223C48');
+    atlasPine(R*.14,R*.62,R*.86,R*.28,'#1B333E');
+    ctx.fillStyle='rgba(255,255,255,.95)';
+    ctx.beginPath(); ctx.moveTo(-R*.42,R*.54-R*.70); ctx.lineTo(-R*.42+R*.30,R*.54-R*.70*.62); ctx.lineTo(-R*.42-R*.30,R*.54-R*.70*.62); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(R*.14,R*.62-R*.86); ctx.lineTo(R*.14+R*.34,R*.62-R*.86*.62); ctx.lineTo(R*.14-R*.34,R*.62-R*.86*.62); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.65)';
+    for(let i=0;i<5;i++){ ctx.beginPath(); ctx.arc(-R*.6+i*R*.3,-R*.2+((i%2)?R*.1:0),1.1,0,Math.PI*2); ctx.fill(); }
+  }
+  else if(key==='swamp'){
+    bg.addColorStop(0,'#5F8664'); bg.addColorStop(.55,'#2C4A34'); bg.addColorStop(1,'#0D1D14');
+    ctx.fillStyle=bg; ctx.fillRect(-R,-R,R*2,R*2);
+    ctx.fillStyle='#3E6B52';
+    ctx.beginPath(); ctx.ellipse(0,R*.6,R*.86,R*.34,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(126,174,118,.85)';
+    ctx.beginPath(); ctx.ellipse(-R*.18,R*.62,R*.26,R*.13,0,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='rgba(206,236,208,.6)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(-R*.6,R*.5); ctx.quadraticCurveTo(0,R*.42,R*.6,R*.52); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-R*.4,R*.78); ctx.quadraticCurveTo(0,R*.7,R*.44,R*.8); ctx.stroke();
+    ctx.strokeStyle='#8FAE62'; ctx.lineWidth=Math.max(1.3,R*.05);
+    for(let i=0;i<3;i++){
+      const rx=-R*.4+i*R*.32, ty=R*.42+i*R*.06;
+      ctx.beginPath(); ctx.moveTo(rx,R*.84); ctx.quadraticCurveTo(rx-R*.06,R*.5,rx+R*.04,ty); ctx.stroke();
+      ctx.fillStyle='rgba(178,196,120,.8)';
+      ctx.beginPath(); ctx.ellipse(rx+R*.04,ty,R*.07,R*.13,0,0,Math.PI*2); ctx.fill();
+    }
+  }
+  else{
+    bg.addColorStop(0,'#7A6AA0'); bg.addColorStop(.5,'#3C3055'); bg.addColorStop(1,'#171125');
+    ctx.fillStyle=bg; ctx.fillRect(-R,-R,R*2,R*2);
+    ctx.fillStyle='rgba(233,224,255,.82)';
+    ctx.beginPath(); ctx.arc(-R*.3,-R*.52,R*.13,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#241B33';
+    ctx.beginPath(); ctx.moveTo(-R,R*.30);
+    ctx.quadraticCurveTo(-R*.2,R*.04,R,R*.34);
+    ctx.lineTo(R,R); ctx.lineTo(-R,R); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#4B3F68';
+    ctx.fillRect(-R*.72,R*.04,R*.30,R*.58);
+    ctx.fillRect(R*.42,R*.04,R*.30,R*.58);
+    ctx.fillStyle='#6E5F92';
+    ctx.fillRect(-R*.72,R*.04,R*.30,R*.10);
+    ctx.fillRect(R*.42,R*.04,R*.30,R*.10);
+    ctx.fillStyle='#120C1C';
+    ctx.beginPath(); ctx.moveTo(-R*.24,R);
+    ctx.quadraticCurveTo(-R*.20,R*.30,0,R*.30);
+    ctx.quadraticCurveTo(R*.20,R*.30,R*.24,R);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle='rgba(240,197,120,.85)';
+    ctx.beginPath(); ctx.arc(-R*.58,R*.24,1.4,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(R*.58,R*.24,1.4,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='rgba(240,197,120,.55)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(-R*.30,R*.94); ctx.lineTo(-R*.30,R*.56); ctx.lineTo(R*.30,R*.56); ctx.lineTo(R*.30,R*.94); ctx.stroke();
+    ctx.fillStyle='#E4674A';
+    ctx.beginPath(); ctx.moveTo(0,-R*.04); ctx.lineTo(R*.28,-R*.04); ctx.lineTo(R*.14,R*.18); ctx.closePath(); ctx.fill();
+  }
+}
+
 function draw(){
   const t=G.t;
   screenTransform();
@@ -2246,13 +3100,15 @@ function draw(){
   screenTransform();
   if(VIGNETTE){ctx.fillStyle=VIGNETTE;ctx.fillRect(0,0,view.w,view.h);}
   if(G.phase==='lost') drawLostFx();
-  if(t-miniAt>140){miniAt=t;drawMini();}
+  if(G.hasMap&&t-miniAt>140){miniAt=t;drawMini();}
 }
 
 let prevTime=performance.now(), hudClock=0;
 function frame(now){
   const dt=Math.min(64,Math.max(0,now-prevTime));
   prevTime=now;
+  /* 总图模式：只画地图，回合逻辑与计时全部冻结。 */
+  if(G.atlas){ drawAtlas(now); requestAnimationFrame(frame); return; }
   if(!G.paused&&(G.phase==='ready'||G.phase==='playing')) G.t+=dt;
   if(G.phase==='ready'&&G.t>=G.startAt){
     hideOverlay();
@@ -2277,7 +3133,7 @@ function frame(now){
 }
 
 measure();
-startLevel(0);
-new ResizeObserver(()=>{measure();followCam(0,true);}).observe(canvas.parentElement);
+openAtlas();
+new ResizeObserver(()=>{ measure(); if(G.atlas) atlasInvalidate(); else followCam(0,true); }).observe(canvas.parentElement);
 requestAnimationFrame(frame);
 })();
